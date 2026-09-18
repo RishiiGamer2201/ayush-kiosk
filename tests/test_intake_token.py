@@ -67,7 +67,9 @@ def test_a_token_others_can_read_is_refused(tmp_path, mode) -> None:
 def test_cloud_ocr_is_off_unless_turned_on() -> None:
     """It needs internet and sends images out of the building. Neither should happen by default."""
 
-    assert Settings().handwritten_cloud_ocr is False
+    # _env_file=None: this asserts what the code defaults to, not what this machine happens to
+    # have configured. The kiosk it runs on has HANDWRITTEN_CLOUD_OCR=true set deliberately.
+    assert Settings(_env_file=None).handwritten_cloud_ocr is False
 
 
 def test_the_default_token_location_is_outside_the_kiosk_tree() -> None:

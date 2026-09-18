@@ -120,6 +120,10 @@ def settings(tmp_path, monkeypatch):
         sarvam_api_key=None,
         session_store_path=tmp_path / "sessions.db",
         session_encryption_key=Fernet.generate_key().decode(),
+        # Unprovisioned unless a test says otherwise. Without this the fixture inherits the
+        # default location, and on a kiosk that has actually been provisioned the tests pick up
+        # the real hospital token and start talking to the real hospital.
+        intake_token_path=tmp_path / "unprovisioned" / "kiosk_token",
     )
 
 
