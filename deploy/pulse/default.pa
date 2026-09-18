@@ -1,0 +1,16 @@
+# MediKiosk audio endpoints.
+#
+# PulseAudio is socket-activated on this board: the daemon exits when idle and is respawned on
+# demand, so anything loaded into a running instance disappears with it. A systemd unit cannot fix
+# that - it was tried, and BindsTo=pulseaudio.service stopped the unit outright because that
+# service is never 'active' under socket activation. Configuration is the right place: this file
+# is read on every start, so the endpoints exist whenever PulseAudio does.
+.include /etc/pulse/default.pa
+
+# Echo cancellation, with the kiosk's own names. The masters are left unset so PulseAudio picks the
+# current default devices - the USB speaker and the camera module's microphone - because their
+# profile names change across restarts (.stereo-fallback and .analog-stereo have both been seen).
+load-module module-echo-cancel aec_method=webrtc source_name=medikiosk_mic sink_name=medikiosk_speaker aec_args="extended_filter=1 noise_suppression=1 high_pass_filter=1 analog_gain_control=0 digital_gain_control=1"
+
+set-default-source medikiosk_mic
+set-default-sink medikiosk_speaker
