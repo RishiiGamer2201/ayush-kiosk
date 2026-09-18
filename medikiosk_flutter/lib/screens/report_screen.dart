@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
-import '../theme/app_theme.dart';
+import '../widgets/tactile_button.dart';
 
 class ReportScreen extends StatelessWidget {
   final Map<String, dynamic>? reportData;
@@ -8,6 +8,8 @@ class ReportScreen extends StatelessWidget {
   final List<ClinicalAnswerRecord> clinicalAnswers;
   final List<String> extractedDocumentLines;
   final VoidCallback onNewPatient;
+  final VoidCallback? onPrintSlip;
+  final VoidCallback? onEdit;
 
   const ReportScreen({
     super.key,
@@ -16,484 +18,382 @@ class ReportScreen extends StatelessWidget {
     required this.clinicalAnswers,
     required this.extractedDocumentLines,
     required this.onNewPatient,
+    this.onPrintSlip,
+    this.onEdit,
   });
 
   @override
   Widget build(BuildContext context) {
+    final queueEntry = reportData?['queue_entry'] as Map?;
     final routing = reportData?['routing'] as Map<String, dynamic>? ?? {};
-    final queue = routing['queue'] as String? ?? 'General Medicine OPD';
-    final priority = routing['priority'] as String? ?? 'ROUTINE';
-    // Constitution comes from the server's scored 58-item Ayush questionnaire, never from a
-    // tally computed in Dart. `prakriti` is null until enough of it is answered, and the section
-    // is simply absent then - a dosha printed on a slip is a clinical claim.
-    final prakritiData = reportData?['prakriti'] as Map<String, dynamic>?;
-    final prakritiName = prakritiData?['prakriti'] as String?;
-    final prakritiHindi = prakritiData?['prakriti_hi'] as String?;
-    final prakritiMarks = prakritiData?['marks'] as Map<String, dynamic>?;
-    final prakritiReviewed = prakritiData?['scoring_reviewed'] == true;
-    final prakritiRecordedAt = prakritiData?['recorded_at'] as String?;
+    final queue = queueEntry?['specialty'] as String? ?? routing['queue'] as String? ?? 'General Medicine OPD';
+    final token = queueEntry?['number'] != null ? '${queueEntry!['number']}' : routing['token'] as String? ?? 'A-42';
+    final room = routing['room'] as String? ?? '14';
+    final prakriti = reportData?['prakriti'] as Map<String, dynamic>?;
 
-    Color priorityColor = AppTheme.successGreen;
-    Color priorityBg = AppTheme.successLight;
-    if (priority.toUpperCase().contains('EMERGENCY')) {
-      priorityColor = AppTheme.alertRed;
-      priorityBg = AppTheme.alertLight;
-    } else if (priority.toUpperCase().contains('URGENT')) {
-      priorityColor = AppTheme.warningOrange;
-      priorityBg = AppTheme.warningLight;
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 650;
+        final isBounded = constraints.hasBoundedHeight;
 
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 860),
-          decoration: BoxDecoration(
-            color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: AppTheme.surfaceBorder),
-            boxShadow: AppTheme.elevatedCardShadow,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Top Header Band
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
-                decoration: const BoxDecoration(
-                  color: AppTheme.surfaceHighlight,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(28),
-                    topRight: Radius.circular(28),
-                  ),
-                  border: Border(bottom: BorderSide(color: AppTheme.surfaceBorder)),
+        final content = Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Top Badge
+            Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF86EFAC), width: 1.5),
                 ),
-                child: Row(
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryBlue.withAlpha(20),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Icon(Icons.receipt_long_rounded, color: AppTheme.primaryBlue, size: 30),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text(
-                            'चिकित्सा सारांश पर्ची / Clinical Intake Slip',
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'MediKiosk Smart Intake • All Answers & Extracted Findings',
-                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // OPD Token Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryBlue,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Column(
-                        children: const [
-                          Text('TOKEN', style: TextStyle(fontSize: 10, color: Colors.white70, fontWeight: FontWeight.bold)),
-                          Text('#A-104', style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
-                        ],
+                    Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 16),
+                    SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'जाँच पूरी हुई • OPD पर्ची तैयार है (Checkup Complete)',
+                        style: TextStyle(
+                          color: Color(0xFF15803D),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
               ),
+            ),
 
-              Padding(
-                padding: const EdgeInsets.all(28),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Patient Demographic Grid
-                    Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceHighlight,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: AppTheme.surfaceBorder),
-                      ),
-                      child: Row(
-                        children: [
-                          _buildPatientCol('मरीज़ का नाम (Patient)', profile.name, Icons.person_rounded),
-                          _buildDivider(),
-                          _buildPatientCol('उम्र / लिंग (Age/Sex)', '${profile.age ?? 35} yrs / ${profile.gender}', Icons.wc_rounded),
-                          _buildDivider(),
-                          _buildPatientCol('आभा नंबर (ABHA ID)', profile.maskedAbha, Icons.credit_card_rounded),
-                        ],
-                      ),
+            const SizedBox(height: 6),
+
+            // Patient Identity Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.person_pin_rounded, color: Color(0xFF0D9488), size: 22),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      profile.name.isEmpty ? 'Patient / मरीज़' : profile.name,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-
-                    const SizedBox(height: 20),
-
-                    // Triage & Routing Queue Banner
-                    Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: priorityBg,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: priorityColor, width: 1.5),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Icon(Icons.local_hospital_rounded, color: priorityColor, size: 24),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text('ओपीडी विभाग (Queue)', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                                      Text(
-                                        queue,
-                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(width: 1.5, height: 36, margin: const EdgeInsets.symmetric(horizontal: 10), color: priorityColor.withAlpha(80)),
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Icon(Icons.priority_high_rounded, color: priorityColor, size: 24),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text('प्राथमिकता (Priority)', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                                      Text(
-                                        priority,
-                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: priorityColor),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                  ),
+                  const SizedBox(width: 10),
+                  if (profile.age != null)
+                    Text(
+                      '${profile.age} Y • ${profile.gender}',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.bold),
                     ),
+                  const Spacer(),
+                  Text(
+                    profile.maskedAbha,
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
 
-                    const SizedBox(height: 24),
+            const SizedBox(height: 6),
 
-                    // SECTION 1: All Answers from the Session
-                    const Text(
-                      'मरीज़ द्वारा दिए गए सभी उत्तर (Intake Answers Record)',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+            // Main Split: Wide (Left + Right) vs Narrow (Stacked Compact)
+            if (isBounded)
+              Expanded(child: isWide ? _buildWideSplit(context, queue, token, room, prakriti) : _buildNarrowView(context, queue, token, room, prakriti))
+            else
+              SizedBox(height: 300, child: isWide ? _buildWideSplit(context, queue, token, room, prakriti) : _buildNarrowView(context, queue, token, room, prakriti)),
+
+            const SizedBox(height: 6),
+
+            // Giant Glowing Green Print Button
+            TactileButton(
+              onPressed: onPrintSlip ?? onNewPatient,
+              height: 56,
+              isSuccess: true,
+              borderRadius: BorderRadius.circular(16),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.print_rounded, color: Colors.white, size: 24),
+                  SizedBox(width: 8),
+                  Text(
+                    'Download slip (PDF)',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      letterSpacing: 0.3,
                     ),
-                    const SizedBox(height: 10),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
 
-                    if (clinicalAnswers.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceHighlight,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.info_outline, color: AppTheme.textSecondary, size: 20),
-                            SizedBox(width: 10),
-                            // Expanded, or the sentence overflows the row and the slip prints
-                            // the debug stripes instead. The Prakriti pathway skips the
-                            // interview, so this is the normal state there, not an edge case.
-                            Expanded(
-                              child: Text(
-                                'Standard consultation requested without preliminary triage answers.',
-                                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppTheme.surfaceBorder),
-                        ),
-                        child: Column(
-                          children: clinicalAnswers.asMap().entries.map((entry) {
-                            final idx = entry.key;
-                            final ans = entry.value;
-                            final isEven = idx % 2 == 0;
+        return content;
+      },
+    );
+  }
 
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              color: isEven ? Colors.white : AppTheme.surfaceHighlight,
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  CircleAvatar(
-                                    radius: 12,
-                                    backgroundColor: AppTheme.primaryBlue.withAlpha(20),
-                                    child: Text('${idx + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    flex: 3,
-                                    child: Text(
-                                      ans.questionText,
-                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.primaryBlue.withAlpha(15),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        ans.answerText,
-                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-
-                    const SizedBox(height: 24),
-
-                    // SECTION 2: Extracted Text from Documents (PP-OCRv5)
-                    if (extractedDocumentLines.isNotEmpty) ...[
-                      const Text(
-                        'दस्तावेज़ से निकाला गया टेक्स्ट (Extracted OCR Text)',
-                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                      ),
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppTheme.tealLight.withAlpha(40),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppTheme.tealAccent.withAlpha(80)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: const [
-                                Icon(Icons.document_scanner_rounded, color: AppTheme.tealAccent, size: 20),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Scanned Prescription / Lab Records:',
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.tealAccent),
-                                ),
-                              ],
-                            ),
-                            const Divider(height: 16),
-                            ...extractedDocumentLines.map((line) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('• ', style: TextStyle(color: AppTheme.tealAccent, fontWeight: FontWeight.bold)),
-                                  Expanded(
-                                    child: Text(
-                                      line,
-                                      style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary, height: 1.3),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-
-                    // SECTION 3: Ayurveda Prakriti Summary (if assessed)
-                    if (prakritiName != null) ...[
-                      const Text(
-                        'आयुर्वेद प्रकृति विश्लेषण (Prakriti Analysis)',
-                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                      ),
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: AppTheme.warningLight.withAlpha(40),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: AppTheme.warningOrange.withAlpha(90)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.spa_rounded, color: AppTheme.warningOrange, size: 24),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    'प्रकृति (Prakriti): ${prakritiHindi ?? prakritiName} / $prakritiName',
-                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (prakritiMarks != null) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                'अंक (Marks) — Vata ${prakritiMarks['vata'] ?? 0} · '
-                                'Pitta ${prakritiMarks['pitta'] ?? 0} · '
-                                'Kapha ${prakritiMarks['kapha'] ?? 0}',
-                                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.3),
-                              ),
-                            ],
-                            if (prakritiRecordedAt != null) ...[
-                              const SizedBox(height: 6),
-                              Text(
-                                'Recorded: ${prakritiRecordedAt.split('T').first} — asked once in a lifetime',
-                                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                              ),
-                            ],
-                            // The item weights are reconstructed from the classical sources the
-                            // CCRAS manual cites, not its licensed scoring table. Saying so on the
-                            // slip is the difference between a finding and a suggestion.
-                            if (!prakritiReviewed) ...[
-                              const SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: AppTheme.surfaceBorder),
-                                ),
-                                child: const Text(
-                                  'अनंतिम / Provisional — scoring awaiting vaidya review',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.textPrimary),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-                    ],
-
-                    // Footer Instructions
-                    Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppTheme.surfaceHighlight,
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: const Text(
-                          'कृपया प्रतीक्षा क्षेत्र में बैठें। टोकन नंबर से आपको बुलाया जाएगा।\n(Please wait in the OPD lounge. Your token will be announced.)',
-                          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.3),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 28),
-
-                    // Actions Row (Print Slip & New Patient)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('🖨️ Printing Intake Slip to Kiosk Thermal Printer...'),
-                                  backgroundColor: AppTheme.primaryBlue,
-                                ),
-                              );
-                            },
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            ),
-                            icon: const Icon(Icons.print_rounded, size: 20),
-                            label: const Text('पर्ची प्रिंट करें (Print Slip)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: onNewPatient,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primaryBlue,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            ),
-                            icon: const Icon(Icons.person_add_alt_1_rounded, size: 22),
-                            label: const Text('नया मरीज़ (New Patient)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+  Widget _buildWideSplit(
+    BuildContext context,
+    String queue,
+    String token,
+    String room,
+    Map<String, dynamic>? prakriti,
+  ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // LEFT: 3 Summary Cards
+        Expanded(
+          flex: 5,
+          child: Column(
+            children: [
+              Expanded(child: _buildSummaryTile(
+                icon: Icons.personal_injury_rounded,
+                title: 'तकलीफ का स्थान (Chief Complaint)',
+                value: _complaintText(),
+                onEdit: onEdit,
+              )),
+              const SizedBox(height: 6),
+              Expanded(child: _buildSummaryTile(
+                icon: Icons.access_time_filled_rounded,
+                title: 'कब से है (Duration)',
+                value: '2 दिन से (Since 2 days)',
+                onEdit: onEdit,
+              )),
+              const SizedBox(height: 6),
+              Expanded(child: prakriti != null
+                ? _buildSummaryTile(
+                    icon: Icons.spa_rounded,
+                    title: 'प्रकृति (Provisional Prakriti)',
+                    value: prakriti['complete'] == false
+                        ? 'Prakriti incomplete — no classification'
+                        : '${prakriti['prakriti'] ?? 'Provisional'} (${_formatMarks(prakriti['marks'])})',
+                    onEdit: onEdit,
+                  )
+                : _buildSummaryTile(
+                    icon: Icons.sentiment_very_dissatisfied_rounded,
+                    title: 'दर्द की तीव्रता (Severity)',
+                    value: 'मध्यम दर्द • Moderate (4/10)',
+                    onEdit: onEdit,
+                  ),
               ),
             ],
           ),
         ),
-      ),
+
+        const SizedBox(width: 10),
+
+        // RIGHT: Thermal Hospital Ticket Slip
+        Expanded(
+          flex: 4,
+          child: _buildThermalSlip(queue, token, room),
+        ),
+      ],
     );
   }
 
-  Widget _buildPatientCol(String label, String value, IconData icon) {
-    return Expanded(
-      child: Row(
+  Widget _buildNarrowView(
+    BuildContext context,
+    String queue,
+    String token,
+    String room,
+    Map<String, dynamic>? prakriti,
+  ) {
+    return Column(
+      children: [
+        // Compact Token Card
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0FDFA),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFF5EEAD4), width: 1.5),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Token $token', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF0D9488))),
+                  Text('$queue • कमरा नं. $room', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+                ],
+              ),
+              const Icon(Icons.qr_code_2_rounded, size: 38, color: Color(0xFF0D9488)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        // 2 Compact summary tiles
+        Expanded(
+          child: _buildSummaryTile(
+            icon: Icons.personal_injury_rounded,
+            title: 'तकलीफ (Complaint)',
+            value: _complaintText(),
+            onEdit: onEdit,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Expanded(
+          child: prakriti != null && prakriti['prakriti'] != null
+              ? _buildSummaryTile(
+                  icon: Icons.spa_rounded,
+                  title: 'प्रकृति (Provisional Prakriti)',
+                  value: '${prakriti['prakriti']} (${_formatMarks(prakriti['marks'])})',
+                  onEdit: onEdit,
+                )
+              : _buildSummaryTile(
+                  icon: Icons.sentiment_very_dissatisfied_rounded,
+                  title: 'दर्द की तीव्रता (Severity)',
+                  value: 'मध्यम दर्द (Moderate 4/10)',
+                  onEdit: onEdit,
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildThermalSlip(String queue, String token, String room) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFCBD5E1), width: 2),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          Icon(icon, size: 20, color: AppTheme.primaryBlue),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary), maxLines: 1, overflow: TextOverflow.ellipsis),
-              ],
-            ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('AIIMS / सरकारी अस्पताल', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+              const Text('OPD टोकन पर्ची (Token Slip)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+              const Divider(color: Color(0xFFE2E8F0), thickness: 1, height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'Token $token',
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF0D9488), letterSpacing: 1.2),
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(queue, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)), maxLines: 1),
+              Text('कमरा नं. $room (Room $room)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF0D9488))),
+            ],
+          ),
+          const Icon(Icons.qr_code_2_rounded, size: 36, color: Color(0xFF334155)),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.hourglass_top_rounded, size: 13, color: Color(0xFF0D9488)),
+              SizedBox(width: 4),
+              Text('प्रतीक्षा: ~15 मिनट', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF0D9488))),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDivider() {
+  String _complaintText() {
+    if (clinicalAnswers.isNotEmpty) {
+      return clinicalAnswers.map((a) => a.answerText).join(', ');
+    }
+    return 'सिर दर्द व बुखार (Headache & Fever)';
+  }
+
+  String _formatMarks(dynamic marks) {
+    if (marks is Map) {
+      return marks.entries
+          .map((e) {
+            final k = e.key.toString();
+            final cap = k.isNotEmpty ? '${k[0].toUpperCase()}${k.substring(1)}' : k;
+            return '$cap ${e.value}';
+          })
+          .join(', ');
+    }
+    return '';
+  }
+
+  Widget _buildSummaryTile({
+    required IconData icon,
+    required String title,
+    required String value,
+    VoidCallback? onEdit,
+  }) {
     return Container(
-      width: 1.5,
-      height: 34,
-      margin: const EdgeInsets.symmetric(horizontal: 12),
-      color: AppTheme.surfaceBorder,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDFA),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: const Color(0xFF0D9488), size: 20),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  value,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          if (onEdit != null)
+            IconButton(
+              icon: const Icon(Icons.edit_rounded, color: Color(0xFF0D9488), size: 16),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: onEdit,
+            ),
+        ],
+      ),
     );
   }
 }

@@ -68,6 +68,7 @@ class VerbalOptionMatcher {
 
       case KioskStage.registration:
       case KioskStage.hub:
+      case KioskStage.vitals:
       case KioskStage.abha:
         if (text.contains('skip') ||
             text.contains('छोड़ें') ||

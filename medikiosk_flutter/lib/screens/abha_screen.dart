@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:camera/camera.dart';
 import '../services/camera_service.dart';
-import '../theme/app_theme.dart';
-import '../widgets/camera_pane.dart';
+import '../widgets/tactile_button.dart';
 
-/// ABHA identification: photograph the card, type the number, or skip.
-///
-/// The headline comes from the server, so it is in the language the patient chose. This screen
-/// previously drew a picture of a camera rather than opening one, so a patient held their card up
-/// to a static icon and nothing happened.
 class AbhaScreen extends StatefulWidget {
+  final String headline;
+  final ValueChanged<String> onSubmitAbha;
+  final VoidCallback onSkip;
+  final CameraService cameraService;
+  final VoidCallback onScanCard;
+  final bool isScanning;
+  final String? scanError;
+
   const AbhaScreen({
     super.key,
     required this.headline,
@@ -20,99 +23,269 @@ class AbhaScreen extends StatefulWidget {
     this.scanError,
   });
 
-  final String headline;
-  final ValueChanged<String> onSubmitAbha;
-  final VoidCallback onSkip;
-  final CameraService cameraService;
-  final VoidCallback onScanCard;
-  final bool isScanning;
-  final String? scanError;
-
   @override
   State<AbhaScreen> createState() => _AbhaScreenState();
 }
 
 class _AbhaScreenState extends State<AbhaScreen> {
-  final TextEditingController _controller = TextEditingController();
+  String _digits = '';
+  bool _showScannerOnMobile = false;
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  void _addDigit(String d) {
+    if (_digits.length < 14) {
+      setState(() => _digits += d);
+    }
+  }
+
+  void _backspace() {
+    if (_digits.isNotEmpty) {
+      setState(() => _digits = _digits.substring(0, _digits.length - 1));
+    }
+  }
+
+  String get _formattedAbha {
+    final buffer = StringBuffer();
+    for (int i = 0; i < _digits.length; i++) {
+      if (i > 0 && (i == 2 || i == 6 || i == 10)) {
+        buffer.write('-');
+      }
+      buffer.write(_digits[i]);
+    }
+    return buffer.toString();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            widget.headline,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w600, height: 1.3),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 650;
+        final isBounded = constraints.hasBoundedHeight;
+
+        final cameraPane = Container(
+          decoration: BoxDecoration(
+            color: Colors.black87,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFF0D9488), width: 2),
           ),
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 26,
-            runSpacing: 22,
-            alignment: WrapAlignment.center,
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              CameraPane(
-                service: widget.cameraService,
-                onCapture: widget.onScanCard,
-                captureLabel: 'Scan card',
-                busy: widget.isScanning,
-                error: widget.scanError,
+              if (widget.cameraService.controller?.value.isInitialized == true)
+                CameraPreview(widget.cameraService.controller!)
+              else
+                const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.qr_code_scanner_rounded, color: Colors.white54, size: 40),
+                      SizedBox(height: 8),
+                      Text('ABHA कार्ड को सामने रखें', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    ],
+                  ),
+                ),
+              // Card guide
+              Center(
+                child: Container(
+                  width: 200,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFF5EEAD4), width: 2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
-              SizedBox(
-                width: 300,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: _controller,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(fontSize: 20, letterSpacing: 1.2),
-                      decoration: const InputDecoration(
-                        labelText: 'ABHA number',
-                        hintText: '12-3456-7890-1234',
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              // Scan Button
+              Positioned(
+                bottom: 8,
+                left: 12,
+                right: 12,
+                child: TactileButton(
+                  onPressed: widget.onScanCard,
+                  height: 44,
+                  backgroundColor: const Color(0xFF0D9488),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        widget.isScanning ? 'स्कैन हो रहा है...' : 'ABHA कार्ड स्कैन करें',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                       ),
-                      onSubmitted: widget.onSubmitAbha,
-                    ),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => widget.onSubmitAbha(_controller.text.trim()),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: const Text('Continue', style: TextStyle(fontSize: 17)),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: widget.onSkip,
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          foregroundColor: AppTheme.textSecondary,
-                        ),
-                        child: const Text('Skip', style: TextStyle(fontSize: 17)),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
-        ],
-      ),
+        );
+
+        final keypadPane = Column(
+          children: [
+            // Display box
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFCBD5E1), width: 1.5),
+              ),
+              child: Text(
+                _digits.isEmpty ? '14-अंक ABHA नंबर' : _formattedAbha,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: _digits.isEmpty ? const Color(0xFF94A3B8) : const Color(0xFF0D9488),
+                  letterSpacing: 1.2,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 6),
+            // Clamped Keypad Grid
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, kbBox) {
+                  final double kHeight = (kbBox.maxHeight - 12) / 4;
+                  return GridView.count(
+                    crossAxisCount: 3,
+                    childAspectRatio: kbBox.maxWidth / (3 * (kHeight > 36 ? kHeight : 40)),
+                    mainAxisSpacing: 4,
+                    crossAxisSpacing: 6,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: [
+                      for (int i = 1; i <= 9; i++)
+                        TactileButton(
+                          onPressed: () => _addDigit('$i'),
+                          height: 40,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Text('$i', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                        ),
+                      TactileButton(
+                        onPressed: _backspace,
+                        height: 40,
+                        backgroundColor: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(12),
+                        child: const Icon(Icons.backspace_outlined, size: 20, color: Color(0xFFDC2626)),
+                      ),
+                      TactileButton(
+                        onPressed: () => _addDigit('0'),
+                        height: 40,
+                        borderRadius: BorderRadius.circular(12),
+                        child: const Text('0', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                      ),
+                      TactileButton(
+                        onPressed: _digits.length == 14 ? () => widget.onSubmitAbha(_digits) : null,
+                        height: 40,
+                        isSuccess: true,
+                        borderRadius: BorderRadius.circular(12),
+                        child: const Icon(Icons.check_rounded, size: 22, color: Colors.white),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+
+        final body = Column(
+          children: [
+            // Top Banner
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF0D9488).withAlpha(80), width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.asset(
+                      'assets/icons/abha.png',
+                      width: 28,
+                      height: 28,
+                      cacheWidth: 100,
+                      cacheHeight: 100,
+                      errorBuilder: (_, _, _) => const Icon(Icons.badge_rounded, color: Color(0xFF0D9488), size: 24),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      widget.headline.isEmpty ? 'आयुष्मान भारत डिजिटल मिशन (ABHA ID)' : widget.headline,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  TactileButton(
+                    onPressed: widget.onSkip,
+                    height: 34,
+                    backgroundColor: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                    child: const Text('छोड़ें (Skip)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                  ),
+                ],
+              ),
+            ),
+
+            if (!isWide) ...[
+              const SizedBox(height: 6),
+              // Mobile Tab Toggle
+              Row(
+                children: [
+                  Expanded(
+                    child: TactileButton(
+                      onPressed: () => setState(() => _showScannerOnMobile = false),
+                      isSelected: !_showScannerOnMobile,
+                      height: 38,
+                      borderRadius: BorderRadius.circular(10),
+                      child: const Text('🔢 14-अंक नंबर', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TactileButton(
+                      onPressed: () => setState(() => _showScannerOnMobile = true),
+                      isSelected: _showScannerOnMobile,
+                      height: 38,
+                      borderRadius: BorderRadius.circular(10),
+                      child: const Text('📷 कार्ड स्कैन', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+
+            const SizedBox(height: 8),
+
+            // Content Split
+            if (isBounded)
+              Expanded(
+                child: isWide
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(flex: 4, child: cameraPane),
+                          const SizedBox(width: 14),
+                          Expanded(flex: 5, child: keypadPane),
+                        ],
+                      )
+                    : (_showScannerOnMobile ? cameraPane : keypadPane),
+              )
+            else
+              SizedBox(height: 280, child: keypadPane),
+          ],
+        );
+
+        return body;
+      },
     );
   }
 }

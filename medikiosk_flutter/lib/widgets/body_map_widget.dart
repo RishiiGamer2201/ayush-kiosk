@@ -1,15 +1,7 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import 'tactile_button.dart';
 
-enum BodyZone {
-  head,
-  throat,
-  chest,
-  abdomen,
-  arms,
-  back,
-  legs,
-}
+enum BodyZone { head, chest, abdomen, back, arms, legs }
 
 class BodyZoneData {
   final BodyZone zone;
@@ -35,13 +27,6 @@ const Map<BodyZone, BodyZoneData> bodyZoneMetadata = {
     icon: Icons.face,
     commonComplaint: 'severe headache and dizziness',
   ),
-  BodyZone.throat: BodyZoneData(
-    zone: BodyZone.throat,
-    labelEn: 'Throat / Neck',
-    labelHi: 'गला / गर्दन',
-    icon: Icons.record_voice_over,
-    commonComplaint: 'sore throat and difficulty swallowing',
-  ),
   BodyZone.chest: BodyZoneData(
     zone: BodyZone.chest,
     labelEn: 'Chest / Heart',
@@ -56,19 +41,19 @@ const Map<BodyZone, BodyZoneData> bodyZoneMetadata = {
     icon: Icons.medical_services_outlined,
     commonComplaint: 'severe abdominal stomach pain',
   ),
-  BodyZone.arms: BodyZoneData(
-    zone: BodyZone.arms,
-    labelEn: 'Arms / Shoulders',
-    labelHi: 'बाँह / कन्धा / हाथ',
-    icon: Icons.front_hand,
-    commonComplaint: 'arm and shoulder pain radiating',
-  ),
   BodyZone.back: BodyZoneData(
     zone: BodyZone.back,
     labelEn: 'Back / Spine',
     labelHi: 'पीठ / कमर',
     icon: Icons.accessibility_new,
     commonComplaint: 'severe lower back pain',
+  ),
+  BodyZone.arms: BodyZoneData(
+    zone: BodyZone.arms,
+    labelEn: 'Arms / Shoulders',
+    labelHi: 'बाँह / कन्धा / हाथ',
+    icon: Icons.front_hand,
+    commonComplaint: 'arm and shoulder pain radiating',
   ),
   BodyZone.legs: BodyZoneData(
     zone: BodyZone.legs,
@@ -79,14 +64,19 @@ const Map<BodyZone, BodyZoneData> bodyZoneMetadata = {
   ),
 };
 
+
 class BodyMapWidget extends StatefulWidget {
   final BodyZone? selectedZone;
   final ValueChanged<BodyZone> onZoneSelected;
+  final String? selectedLaterality; // 'left', 'right', 'both'
+  final ValueChanged<String>? onLateralitySelected;
 
   const BodyMapWidget({
     super.key,
     this.selectedZone,
     required this.onZoneSelected,
+    this.selectedLaterality,
+    this.onLateralitySelected,
   });
 
   @override
@@ -98,235 +88,225 @@ class _BodyMapWidgetState extends State<BodyMapWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Front / Back toggle switch
-        Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceHighlight,
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: AppTheme.surfaceBorder),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildViewTab(title: 'सामने (Front)', isBack: false),
-              _buildViewTab(title: 'पीछे (Back)', isBack: true),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Interactive Anatomical Silhouette
-        Center(
-          child: SizedBox(
-            width: 320,
-            height: 380,
-            child: Stack(
-              alignment: Alignment.center,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Column(
+          children: [
+            // Top Toggle: Front vs Back View
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Silhouette Canvas
-                CustomPaint(
-                  size: const Size(320, 380),
-                  painter: BodySilhouettePainter(isBackView: _isBackView),
-                ),
-
-                // Interactive Touch Targets
-                // 1. Head Zone
-                Positioned(
-                  top: 15,
-                  child: _buildZoneTapTarget(
-                    zone: BodyZone.head,
-                    width: 70,
-                    height: 70,
-                    shape: BoxShape.circle,
+                TactileButton(
+                  onPressed: () => setState(() => _isBackView = false),
+                  isSelected: !_isBackView,
+                  height: 46,
+                  borderRadius: BorderRadius.circular(14),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('👤', style: TextStyle(fontSize: 18)),
+                      SizedBox(width: 6),
+                      Text('आगे (Front)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                    ],
                   ),
-                ),
-
-                // 2. Throat Zone
-                Positioned(
-                  top: 90,
-                  child: _buildZoneTapTarget(
-                    zone: BodyZone.throat,
-                    width: 50,
-                    height: 30,
-                    shape: BoxShape.rectangle,
-                  ),
-                ),
-
-                // 3. Chest (Front) or Back (Back) Zone
-                Positioned(
-                  top: 125,
-                  child: _buildZoneTapTarget(
-                    zone: _isBackView ? BodyZone.back : BodyZone.chest,
-                    width: 110,
-                    height: 60,
-                    shape: BoxShape.rectangle,
-                  ),
-                ),
-
-                // 4. Arms Zone (Left and Right)
-                Positioned(
-                  top: 125,
-                  left: 30,
-                  child: _buildZoneTapTarget(
-                    zone: BodyZone.arms,
-                    width: 50,
-                    height: 120,
-                    shape: BoxShape.rectangle,
-                  ),
-                ),
-                Positioned(
-                  top: 125,
-                  right: 30,
-                  child: _buildZoneTapTarget(
-                    zone: BodyZone.arms,
-                    width: 50,
-                    height: 120,
-                    shape: BoxShape.rectangle,
-                  ),
-                ),
-
-                // 5. Abdomen (Front) or Lower Back (Back)
-                Positioned(
-                  top: 190,
-                  child: _buildZoneTapTarget(
-                    zone: _isBackView ? BodyZone.back : BodyZone.abdomen,
-                    width: 100,
-                    height: 55,
-                    shape: BoxShape.rectangle,
-                  ),
-                ),
-
-                // 6. Legs Zone
-                Positioned(
-                  top: 250,
-                  child: _buildZoneTapTarget(
-                    zone: BodyZone.legs,
-                    width: 110,
-                    height: 110,
-                    shape: BoxShape.rectangle,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 12),
-
-        // Selected zone indicator text
-        if (widget.selectedZone != null) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryBlue.withAlpha(20),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.primaryBlue, width: 2),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  bodyZoneMetadata[widget.selectedZone]!.icon,
-                  color: AppTheme.primaryBlue,
-                  size: 28,
                 ),
                 const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      bodyZoneMetadata[widget.selectedZone]!.labelHi,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      bodyZoneMetadata[widget.selectedZone]!.labelEn,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textSecondary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+                TactileButton(
+                  onPressed: () => setState(() => _isBackView = true),
+                  isSelected: _isBackView,
+                  height: 46,
+                  borderRadius: BorderRadius.circular(14),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('🔄', style: TextStyle(fontSize: 18)),
+                      SizedBox(width: 6),
+                      Text('पीछे (Back)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
-      ],
+
+            const SizedBox(height: 8),
+
+            // Main Area: Interactive Silhouette + Laterality options
+            Expanded(
+              child: Row(
+                children: [
+                  // Silhouette Canvas Area
+                  Expanded(
+                    flex: 3,
+                    child: Center(
+                      child: AspectRatio(
+                        aspectRatio: 0.65,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CustomPaint(
+                              size: Size.infinite,
+                              painter: BodySilhouettePainter(isBackView: _isBackView),
+                            ),
+                            // Head
+                            Positioned(
+                              top: 20,
+                              child: _buildZoneTap(
+                                zone: BodyZone.head,
+                                width: 70,
+                                height: 70,
+                                isCircle: true,
+                              ),
+                            ),
+                            // Chest / Upper Back
+                            Positioned(
+                              top: 95,
+                              child: _buildZoneTap(
+                                zone: _isBackView ? BodyZone.back : BodyZone.chest,
+                                width: 100,
+                                height: 50,
+                              ),
+                            ),
+                            // Abdomen / Lower Back
+                            Positioned(
+                              top: 150,
+                              child: _buildZoneTap(
+                                zone: _isBackView ? BodyZone.back : BodyZone.abdomen,
+                                width: 90,
+                                height: 45,
+                              ),
+                            ),
+                            // Left Arm
+                            Positioned(
+                              top: 95,
+                              left: 20,
+                              child: _buildZoneTap(
+                                zone: BodyZone.arms,
+                                width: 35,
+                                height: 95,
+                              ),
+                            ),
+                            // Right Arm
+                            Positioned(
+                              top: 95,
+                              right: 20,
+                              child: _buildZoneTap(
+                                zone: BodyZone.arms,
+                                width: 35,
+                                height: 95,
+                              ),
+                            ),
+                            // Legs / Knees
+                            Positioned(
+                              top: 200,
+                              child: _buildZoneTap(
+                                zone: BodyZone.legs,
+                                width: 100,
+                                height: 90,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Right Side: Laterality selector buttons (Left / Right / Both)
+                  Expanded(
+                    flex: 2,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'किस तरफ? (Side)',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                        ),
+                        const SizedBox(height: 10),
+                        TactileButton(
+                          onPressed: () => widget.onLateralitySelected?.call('left'),
+                          isSelected: widget.selectedLaterality == 'left',
+                          height: 52,
+                          borderRadius: BorderRadius.circular(14),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('🫲', style: TextStyle(fontSize: 20)),
+                              SizedBox(width: 8),
+                              Text('बायाँ (Left)', style: TextStyle(fontWeight: FontWeight.w800)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TactileButton(
+                          onPressed: () => widget.onLateralitySelected?.call('right'),
+                          isSelected: widget.selectedLaterality == 'right',
+                          height: 52,
+                          borderRadius: BorderRadius.circular(14),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('🫱', style: TextStyle(fontSize: 20)),
+                              SizedBox(width: 8),
+                              Text('दायाँ (Right)', style: TextStyle(fontWeight: FontWeight.w800)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TactileButton(
+                          onPressed: () => widget.onLateralitySelected?.call('both'),
+                          isSelected: widget.selectedLaterality == 'both',
+                          height: 52,
+                          borderRadius: BorderRadius.circular(14),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('👥', style: TextStyle(fontSize: 20)),
+                              SizedBox(width: 8),
+                              Text('दोनों (Both)', style: TextStyle(fontWeight: FontWeight.w800)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildViewTab({required String title, required bool isBack}) {
-    final isSelected = _isBackView == isBack;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => setState(() => _isBackView = isBack),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryBlue : Colors.transparent,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Text(
-          title,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: isSelected ? Colors.white : AppTheme.textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildZoneTapTarget({
+  Widget _buildZoneTap({
     required BodyZone zone,
     required double width,
     required double height,
-    required BoxShape shape,
+    bool isCircle = false,
   }) {
     final isSelected = widget.selectedZone == zone;
-
     return GestureDetector(
       onTap: () => widget.onZoneSelected(zone),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
+        duration: const Duration(milliseconds: 200),
         width: width,
         height: height,
         decoration: BoxDecoration(
-          shape: shape,
-          borderRadius: shape == BoxShape.rectangle ? BorderRadius.circular(16) : null,
-          color: isSelected
-              ? AppTheme.alertRed.withAlpha(180)
-              : AppTheme.primaryBlue.withAlpha(40),
+          shape: isCircle ? BoxShape.circle : BoxShape.rectangle,
+          borderRadius: isCircle ? null : BorderRadius.circular(12),
+          color: isSelected ? const Color(0xFFDC2626).withAlpha(190) : const Color(0xFF0D9488).withAlpha(40),
           border: Border.all(
-            color: isSelected ? AppTheme.alertRedBright : AppTheme.accentCyan.withAlpha(120),
+            color: isSelected ? const Color(0xFFEF4444) : const Color(0xFF0D9488).withAlpha(120),
             width: isSelected ? 3 : 1.5,
           ),
           boxShadow: isSelected
               ? [
-                  BoxShadow(
-                    color: AppTheme.alertRedBright.withAlpha(120),
-                    blurRadius: 16,
+                  const BoxShadow(
+                    color: Color(0x80EF4444),
+                    blurRadius: 14,
                     spreadRadius: 2,
                   ),
                 ]
               : null,
-        ),
-        child: Center(
-          child: Icon(
-            bodyZoneMetadata[zone]!.icon,
-            color: isSelected ? Colors.white : AppTheme.accentCyan.withAlpha(200),
-            size: 20,
-          ),
         ),
       ),
     );
@@ -335,77 +315,56 @@ class _BodyMapWidgetState extends State<BodyMapWidget> {
 
 class BodySilhouettePainter extends CustomPainter {
   final bool isBackView;
-
   BodySilhouettePainter({required this.isBackView});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
+    final fill = Paint()
       ..color = const Color(0xFFE2E8F0)
       ..style = PaintingStyle.fill;
-
-    final outlinePaint = Paint()
+    final stroke = Paint()
       ..color = const Color(0xFF94A3B8)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
     final cx = size.width / 2;
-
     // Head
-    final headCenter = Offset(cx, 50);
-    canvas.drawCircle(headCenter, 32, paint);
-    canvas.drawCircle(headCenter, 32, outlinePaint);
+    canvas.drawCircle(Offset(cx, 55), 28, fill);
+    canvas.drawCircle(Offset(cx, 55), 28, stroke);
 
-    // Torso path
-    final torsoPath = Path()
-      ..moveTo(cx - 20, 85) // Neck left
-      ..lineTo(cx - 65, 110) // Shoulder left
-      ..lineTo(cx - 50, 240) // Hip left
-      ..lineTo(cx - 10, 250) // Crotch left
-      ..lineTo(cx + 10, 250) // Crotch right
-      ..lineTo(cx + 50, 240) // Hip right
-      ..lineTo(cx + 65, 110) // Shoulder right
-      ..lineTo(cx + 20, 85) // Neck right
+    // Torso
+    final torso = Path()
+      ..moveTo(cx - 18, 86)
+      ..lineTo(cx - 50, 105)
+      ..lineTo(cx - 40, 195)
+      ..lineTo(cx - 8, 205)
+      ..lineTo(cx + 8, 205)
+      ..lineTo(cx + 40, 195)
+      ..lineTo(cx + 50, 105)
+      ..lineTo(cx + 18, 86)
       ..close();
+    canvas.drawPath(torso, fill);
+    canvas.drawPath(torso, stroke);
 
-    canvas.drawPath(torsoPath, paint);
-    canvas.drawPath(torsoPath, outlinePaint);
+    // Arms
+    final leftArm = RRect.fromRectAndRadius(Rect.fromLTWH(cx - 72, 105, 18, 90), const Radius.circular(9));
+    canvas.drawRRect(leftArm, fill);
+    canvas.drawRRect(leftArm, stroke);
 
-    // Left Arm
-    final leftArm = RRect.fromRectAndRadius(
-      Rect.fromLTWH(cx - 95, 115, 24, 125),
-      const Radius.circular(12),
-    );
-    canvas.drawRRect(leftArm, paint);
-    canvas.drawRRect(leftArm, outlinePaint);
+    final rightArm = RRect.fromRectAndRadius(Rect.fromLTWH(cx + 54, 105, 18, 90), const Radius.circular(9));
+    canvas.drawRRect(rightArm, fill);
+    canvas.drawRRect(rightArm, stroke);
 
-    // Right Arm
-    final rightArm = RRect.fromRectAndRadius(
-      Rect.fromLTWH(cx + 71, 115, 24, 125),
-      const Radius.circular(12),
-    );
-    canvas.drawRRect(rightArm, paint);
-    canvas.drawRRect(rightArm, outlinePaint);
+    // Legs
+    final leftLeg = RRect.fromRectAndRadius(Rect.fromLTWH(cx - 36, 205, 28, 95), const Radius.circular(10));
+    canvas.drawRRect(leftLeg, fill);
+    canvas.drawRRect(leftLeg, stroke);
 
-    // Left Leg
-    final leftLeg = RRect.fromRectAndRadius(
-      Rect.fromLTWH(cx - 45, 245, 36, 125),
-      const Radius.circular(14),
-    );
-    canvas.drawRRect(leftLeg, paint);
-    canvas.drawRRect(leftLeg, outlinePaint);
-
-    // Right Leg
-    final rightLeg = RRect.fromRectAndRadius(
-      Rect.fromLTWH(cx + 9, 245, 36, 125),
-      const Radius.circular(14),
-    );
-    canvas.drawRRect(rightLeg, paint);
-    canvas.drawRRect(rightLeg, outlinePaint);
+    final rightLeg = RRect.fromRectAndRadius(Rect.fromLTWH(cx + 8, 205, 28, 95), const Radius.circular(10));
+    canvas.drawRRect(rightLeg, fill);
+    canvas.drawRRect(rightLeg, stroke);
   }
 
   @override
-  bool shouldRepaint(covariant BodySilhouettePainter oldDelegate) {
-    return oldDelegate.isBackView != isBackView;
-  }
+  bool shouldRepaint(covariant BodySilhouettePainter oldDelegate) => oldDelegate.isBackView != isBackView;
 }
