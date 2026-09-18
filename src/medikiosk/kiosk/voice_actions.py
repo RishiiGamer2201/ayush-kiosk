@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from enum import Enum
+from medikiosk.clinical.answers import NUMBER_WORDS
 
 
 class Decision(str, Enum):
@@ -280,30 +281,51 @@ def match_option(text: str, options: list[dict], language: str | None = None):
     if number:
         index = int(number[1]) - 1
         return options[index]["value"] if 0 <= index < len(options) else None
-    words = [
-        "one",
-        "two",
-        "three",
-        "four",
-        "five",
-        "six",
-        "seven",
-        "eight",
-        "nine",
-        "ten",
-        "eleven",
-        "twelve",
-    ]
-    for index, word in enumerate(words):
-        if value in {word, f"option {word}"}:
-            return options[index]["value"] if index < len(options) else None
-    matches = []
-    for option in options:
+    # Number words in the patient's language, not only in English. NUMBER_WORDS is the same
+    # table the clinical answers read, so "दो" counts exactly as "two" does.
+    spoken_numbers: dict[str, int] = {}
+    for table in (NUMBER_WORDS.get("en", {}), NUMBER_WORDS.get((language or "en")[:2], {})):
+        spoken_numbers.update(table)
+    for word, number in spoken_numbers.items():
+        if 1 <= number <= len(options) and value in {word, f"option {word}"}:
+            return options[number - 1]["value"]
+    if not value:
+        return None
+
+    def aliases_for(option: dict) -> list[str]:
         aliases = [str(option["value"]), option.get("label", ""), *option.get("aliases", [])]
         if option["value"] == "yes":
             aliases.extend(YES)
         elif option["value"] == "no":
             aliases.extend(NO)
-        if value and value in {normalized(a) for a in aliases}:
-            matches.append(option["value"])
-    return matches[0] if len(matches) == 1 else None
+        return [normalized(a) for a in aliases if a]
+
+    # Said exactly: the whole utterance is the option. Unchanged, and still first.
+    exact = [o["value"] for o in options if value in set(aliases_for(o))]
+    if len(exact) == 1:
+        return exact[0]
+    if exact:
+        return None
+
+    # Said inside a sentence. An alias of two or more characters appearing in the utterance is
+    # taken as a mention of that option; one-character aliases are skipped because a single
+    # letter or matra appears in almost any sentence.
+    spoken = f" {value} "
+    mentioned = []
+    for option in options:
+        for alias in aliases_for(option):
+            if len(alias) < 2:
+                continue
+            # Whole phrase between word breaks...
+            if f" {alias} " in spoken:
+                mentioned.append(option["value"])
+                break
+            # ...or every substantial word of a multi-word alias, each on its own boundary.
+            # Never a bare substring: "no" is inside "non veg", and that answered for the patient.
+            words = [word for word in alias.split() if len(word) > 2]
+            if len(words) > 1 and all(f" {word} " in spoken for word in words):
+                mentioned.append(option["value"])
+                break
+
+    # Exactly one option mentioned is an answer; two is a question the kiosk should ask again.
+    return mentioned[0] if len(mentioned) == 1 else None

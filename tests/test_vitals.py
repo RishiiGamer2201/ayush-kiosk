@@ -41,11 +41,19 @@ def test_pulse_in_front_of_the_camera_is_measured(monkeypatch):
     skin = np.array([180.0, 130.0, 105.0])
     pbv = np.array([0.33, 0.77, 0.53]) / 0.77
 
+    # The clock belongs to the camera here: a real one delivers a frame every 1/fs seconds, and
+    # measure() timestamps frames from the wall clock. Without this the fake camera empties its
+    # buffer in microseconds and the analysis window spans no time at all.
+    clock = {"now": 0.0}
+
     class FakeCapture:
         def __init__(self):
             self.index = 0
 
         def isOpened(self):  # noqa: N802
+            return True
+
+        def set(self, *_):  # noqa: D102 - measure() asks for MJPEG; a fake camera just agrees
             return True
 
         def read(self):
@@ -54,14 +62,21 @@ def test_pulse_in_front_of_the_camera_is_measured(monkeypatch):
             pulse = np.sin(2 * np.pi * (bpm / 60) * self.index / fs)
             colour = skin * (1 + 0.003 * pulse * pbv)
             self.index += 1
+            clock["now"] += 1.0 / fs
             return True, np.full((64, 64, 3), colour[::-1], dtype=np.uint8)
 
         def release(self):
             pass
 
+    class FakeClock:
+        @staticmethod
+        def monotonic():
+            return clock["now"]
+
     import cv2
 
     monkeypatch.setattr(cv2, "VideoCapture", lambda *_: FakeCapture())
+    monkeypatch.setattr(vitals, "time", FakeClock)
     # The face stack is exercised by test_heart_rate.py; here every pixel is the face, so the
     # measurement path itself is what is under test.
     monkeypatch.setattr(vitals, "MEASURE_S", 25.0)

@@ -295,6 +295,53 @@ TEXT: dict[str, dict[str, str]] = {
 }
 
 
+# What patients call these things, as opposed to what the buttons call them. Read by
+# voice_actions.match_option when the spoken answer is not the label itself.
+#
+# English and Hindi are written by hand and checked; a wrong alias here answers a clinical
+# question on a patient's behalf, which is worse than not matching at all. The other seven
+# languages match on their labels until a speaker of each adds theirs.
+ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
+    "who_self": {
+        "en": ("myself", "me", "i am the patient", "self", "my own"),
+        "hi": ("मैं", "मुझे", "खुद", "स्वयं", "अपना", "मेरा"),
+    },
+    "who_parent": {
+        "en": ("mother", "father", "mum", "mom", "dad", "parent", "guardian", "my son",
+               "my daughter", "my child"),
+        "hi": ("माँ", "मां", "पिता", "पापा", "माता", "बेटा", "बेटी", "बच्चा", "बच्ची", "अभिभावक"),
+    },
+    "who_family": {
+        "en": ("wife", "husband", "brother", "sister", "family", "relative", "uncle", "aunt",
+               "grandmother", "grandfather"),
+        "hi": ("पत्नी", "पति", "भाई", "बहन", "परिवार", "रिश्तेदार", "चाचा", "मामा", "दादी", "दादा",
+               "नानी", "नाना"),
+    },
+    "who_caregiver": {
+        "en": ("caregiver", "carer", "attendant", "helper", "nurse", "i look after"),
+        "hi": ("देखभाल", "सहायक", "नर्स", "आया", "सेवक"),
+    },
+    "hub_clinical": {
+        "en": ("symptom", "symptoms", "problem", "sick", "illness", "pain", "doctor"),
+        "hi": ("लक्षण", "समस्या", "तकलीफ", "दर्द", "बीमारी", "बीमार", "डॉक्टर"),
+    },
+    "hub_prakriti": {
+        "en": ("prakriti", "ayurveda", "ayush", "body type", "constitution"),
+        "hi": ("प्रकृति", "आयुर्वेद", "आयुष", "शरीर"),
+    },
+    "hub_vitals": {
+        "en": ("heart", "heart rate", "pulse", "vitals", "breathing", "breath"),
+        "hi": ("हृदय", "दिल", "धड़कन", "नाड़ी", "साँस", "सांस"),
+    },
+}
+
+
+def aliases(key: str, language: str | None) -> tuple[str, ...]:
+    """Extra words that mean this option, or an empty tuple where none are written yet."""
+
+    return ALIASES.get(key, {}).get((language or "en")[:2], ())
+
+
 def t(key: str, language: str | None) -> str:
     entry = TEXT[key]
     return entry.get((language or "en")[:2], entry["en"])

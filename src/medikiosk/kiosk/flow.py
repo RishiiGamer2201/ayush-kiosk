@@ -25,7 +25,7 @@ from enum import Enum
 from medikiosk.kiosk import ayurveda, prakriti
 from medikiosk.kiosk.abha import normalise
 from medikiosk.kiosk.consent import BOOTSTRAP, ConsentLedger, notice
-from medikiosk.kiosk.i18n import LANGUAGE_CODES, t
+from medikiosk.kiosk.i18n import LANGUAGE_CODES, aliases, t
 from medikiosk.kiosk.provenance import Ledger, Source
 from medikiosk.kiosk.voice_actions import parse_age
 from medikiosk.languages import LANGUAGES
@@ -992,20 +992,28 @@ class KioskFlow:
                 **base,
                 "headline": text("who", self.language),
                 "options": [
-                    {"value": "self", "label": t("who_self", self.language), "icon": "person_one"},
+                    {
+                        "value": "self",
+                        "label": t("who_self", self.language),
+                        "aliases": aliases("who_self", self.language),
+                        "icon": "person_one",
+                    },
                     {
                         "value": "parent_guardian",
                         "label": t("who_parent", self.language),
+                        "aliases": aliases("who_parent", self.language),
                         "icon": "person_two",
                     },
                     {
                         "value": "family_attendant",
                         "label": t("who_family", self.language),
+                        "aliases": aliases("who_family", self.language),
                         "icon": "person_two",
                     },
                     {
                         "value": "caregiver",
                         "label": t("who_caregiver", self.language),
+                        "aliases": aliases("who_caregiver", self.language),
                         "icon": "person_two",
                     },
                 ],
@@ -1033,9 +1041,21 @@ class KioskFlow:
                 **base,
                 "headline": t("hub", self.language),
                 "options": [
-                    {"value": "clinical", "label": t("hub_clinical", self.language)},
-                    {"value": "prakriti", "label": t("hub_prakriti", self.language)},
-                    {"value": "vitals", "label": t("hub_vitals", self.language)},
+                    {
+                        "value": "clinical",
+                        "label": t("hub_clinical", self.language),
+                        "aliases": aliases("hub_clinical", self.language),
+                    },
+                    {
+                        "value": "prakriti",
+                        "label": t("hub_prakriti", self.language),
+                        "aliases": aliases("hub_prakriti", self.language),
+                    },
+                    {
+                        "value": "vitals",
+                        "label": t("hub_vitals", self.language),
+                        "aliases": aliases("hub_vitals", self.language),
+                    },
                 ],
             }
         if self.stage is Stage.VITALS:
@@ -1102,25 +1122,6 @@ class KioskFlow:
                 "input": "camera_or_text",
                 "headline": text("abha", self.language),
                 "skip_label": text("skip", self.language),
-            }
-
-        if self.stage is Stage.WHO:
-            return {
-                "stage": self.stage.value,
-                "input": "touch",
-                "headline": text("who", self.language),
-                "options": [
-                    {
-                        "value": "self",
-                        "label": text("who_self", self.language),
-                        "icon": "person_one",
-                    },
-                    {
-                        "value": "other",
-                        "label": text("who_other", self.language),
-                        "icon": "person_two",
-                    },
-                ],
             }
 
         if self.stage is Stage.INTERVIEW:
