@@ -5,59 +5,62 @@ import '../theme/app_theme.dart';
 
 class FaceScore {
   final int score;
-  final String labelHi;
   final String labelEn;
+  /// The same label in each language the kiosk offers, keyed by code. English is labelEn.
+  final Map<String, String> labels;
   final Color color;
   final String emoji;
 
   const FaceScore({
     required this.score,
-    required this.labelHi,
     required this.labelEn,
+    required this.labels,
     required this.color,
     required this.emoji,
   });
+
+  String labelFor(String language) => labels[language] ?? labelEn;
 }
 
 const List<FaceScore> wongBakerFaces = [
   FaceScore(
     score: 0,
-    labelHi: 'कोई दर्द नहीं',
+    labels: {'hi': 'कोई दर्द नहीं', 'bn': 'কোনো ব্যথা নেই', 'mr': 'वेदना नाही', 'te': 'నొప్పి లేదు', 'ta': 'வலி இல்லை', 'gu': 'દુખાવો નથી', 'kn': 'ನೋವು ಇಲ್ಲ', 'pa': 'ਕੋਈ ਦਰਦ ਨਹੀਂ'},
     labelEn: 'No Hurt',
     color: Color(0xFF2EA043),
     emoji: '😊',
   ),
   FaceScore(
     score: 2,
-    labelHi: 'हल्का दर्द',
+    labels: {'hi': 'हल्का दर्द', 'bn': 'সামান্য ব্যথা', 'mr': 'थोडी वेदना', 'te': 'కొద్దిగా నొప్పి', 'ta': 'சிறிது வலி', 'gu': 'થોડો દુખાવો', 'kn': 'ಸ್ವಲ್ಪ ನೋವು', 'pa': 'ਹਲਕਾ ਦਰਦ'},
     labelEn: 'Hurts Little Bit',
     color: Color(0xFF7EE787),
     emoji: '🙂',
   ),
   FaceScore(
     score: 4,
-    labelHi: 'थोड़ा ज़्यादा दर्द',
+    labels: {'hi': 'थोड़ा ज़्यादा दर्द', 'bn': 'আরেকটু বেশি ব্যথা', 'mr': 'थोडी जास्त वेदना', 'te': 'కొంచెం ఎక్కువ నొప్పి', 'ta': 'இன்னும் கொஞ்சம் வலி', 'gu': 'થોડો વધુ દુખાવો', 'kn': 'ಸ್ವಲ್ಪ ಹೆಚ್ಚು ನೋವು', 'pa': 'ਥੋੜ੍ਹਾ ਵੱਧ ਦਰਦ'},
     labelEn: 'Hurts Little More',
     color: Color(0xFFD29922),
     emoji: '😐',
   ),
   FaceScore(
     score: 6,
-    labelHi: 'काफ़ी दर्द',
+    labels: {'hi': 'काफ़ी दर्द', 'bn': 'বেশ ব্যথা', 'mr': 'बरीच वेदना', 'te': 'చాలా నొప్పి', 'ta': 'அதிக வலி', 'gu': 'ઘણો દુખાવો', 'kn': 'ಸಾಕಷ್ಟು ನೋವು', 'pa': 'ਕਾਫ਼ੀ ਦਰਦ'},
     labelEn: 'Hurts Even More',
     color: Color(0xFFFA8E3D),
     emoji: '😟',
   ),
   FaceScore(
     score: 8,
-    labelHi: 'बहुत तेज़ दर्द',
+    labels: {'hi': 'बहुत तेज़ दर्द', 'bn': 'খুব তীব্র ব্যথা', 'mr': 'खूप तीव्र वेदना', 'te': 'చాలా తీవ్రమైన నొప్పి', 'ta': 'மிகக் கடுமையான வலி', 'gu': 'ખૂબ તીવ્ર દુખાવો', 'kn': 'ತುಂಬಾ ತೀವ್ರ ನೋವು', 'pa': 'ਬਹੁਤ ਤੇਜ਼ ਦਰਦ'},
     labelEn: 'Hurts Whole Lot',
     color: Color(0xFFF85149),
     emoji: '😢',
   ),
   FaceScore(
     score: 10,
-    labelHi: 'असहनीय भयंकर दर्द',
+    labels: {'hi': 'असहनीय भयंकर दर्द', 'bn': 'অসহনীয় ভয়ানক ব্যথা', 'mr': 'असह्य भयंकर वेदना', 'te': 'భరించలేని నొప్పి', 'ta': 'தாங்க முடியாத வலி', 'gu': 'અસહ્ય ભયંકર દુખાવો', 'kn': 'ಸಹಿಸಲಾಗದ ನೋವು', 'pa': 'ਅਸਹਿ ਭਿਆਨਕ ਦਰਦ'},
     labelEn: 'Worst Hurt Possible',
     color: Color(0xFFDA3633),
     emoji: '😭',
@@ -166,7 +169,7 @@ class FacesSeverityWidget extends StatelessWidget {
 
                     // Hindi Text
                     Text(
-                      face.labelHi,
+                      face.labelFor(language),
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -178,7 +181,7 @@ class FacesSeverityWidget extends StatelessWidget {
 
                     // English Subtext
                     Text(
-                      face.labelEn,
+                      language == 'en' ? '' : face.labelEn,
                       style: const TextStyle(
                         fontSize: 11,
                         color: AppTheme.textSecondary,

@@ -501,11 +501,13 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     }
 
     // 7. Demographics & Relations
-    if (has('married') || has('विवाहित') || has('rings')) {
-      return const _OptionMeta(emoji: '💍', sub: 'Married', color: Color(0xFFDB2777));
-    }
+    // Unmarried first: 'विवाहित' is contained in 'अविवाहित', and Devanagari has no word
+    // boundary a regex can use, so the more specific word has to be tested first.
     if (has('unmarried') || has('अविवाहित') || has('single')) {
       return const _OptionMeta(emoji: '👤', sub: 'Unmarried', color: Color(0xFF0284C7));
+    }
+    if (has('married') || has('विवाहित') || has('rings')) {
+      return const _OptionMeta(emoji: '💍', sub: 'Married', color: Color(0xFFDB2777));
     }
     if (has('divorce') || has('तलाक')) {
       return const _OptionMeta(emoji: '💔', sub: 'Divorcee', color: Color(0xFF64748B));
@@ -627,12 +629,6 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     }
     if (has('night') || has('रात')) {
       return const _OptionMeta(emoji: '🌙', sub: 'Night', color: Color(0xFF6366F1));
-    }
-    if (has('unmarried') || has('single') || has('अविवाहित')) {
-      return const _OptionMeta(emoji: '🙋', sub: 'Unmarried', color: Color(0xFF64748B));
-    }
-    if (has('married') || has('विवाहित')) {
-      return const _OptionMeta(emoji: '💍', sub: 'Married', color: Color(0xFFDB2777));
     }
     if (has('male') || has('पुरुष')) {
       return const _OptionMeta(emoji: '👨', sub: 'Male', color: Color(0xFF2563EB));
@@ -960,6 +956,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     // 4. ABHA Stage
     if (stage == KioskStage.abha && widget.cameraService != null) {
       return AbhaScreen(
+        language: client.language,
         headline: client.headline,
         onSubmitAbha: client.submitAbha,
         onSkip: () => client.action('skip'),
@@ -974,6 +971,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     if (stage == KioskStage.documents && widget.cameraService != null) {
       final lines = preview != null ? List<String>.from(preview['lines'] as List? ?? []) : <String>[];
       return DocumentsScreen(
+        language: client.language,
         headline: client.headline,
         onScan: widget.onScanCard ?? () {},
         onDone: () => client.action('done'),

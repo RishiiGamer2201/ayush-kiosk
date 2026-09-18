@@ -54,15 +54,15 @@ class ReportScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: const Color(0xFF86EFAC), width: 1.5),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 16),
-                    SizedBox(width: 6),
+                    const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 16),
+                    const SizedBox(width: 6),
                     Flexible(
                       child: Text(
-                        'जाँच पूरी हुई • OPD पर्ची तैयार है (Checkup Complete)',
-                        style: TextStyle(
+                        tr('checkup_complete', language),
+                        style: const TextStyle(
                           color: Color(0xFF15803D),
                           fontWeight: FontWeight.w800,
                           fontSize: 12,
@@ -129,15 +129,15 @@ class ReportScreen extends StatelessWidget {
               height: 56,
               isSuccess: true,
               borderRadius: BorderRadius.circular(16),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.print_rounded, color: Colors.white, size: 24),
-                  SizedBox(width: 8),
+                  const Icon(Icons.print_rounded, color: Colors.white, size: 24),
+                  const SizedBox(width: 8),
                   Text(
-                    'Download slip (PDF)',
-                    style: TextStyle(
+                    tr('download_slip', language),
+                    style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w900,
                       color: Colors.white,
@@ -231,21 +231,21 @@ class ReportScreen extends StatelessWidget {
         Widget buildTiles({required bool useFlex}) {
           final tile1 = _buildSummaryTile(
             icon: Icons.personal_injury_rounded,
-            title: 'तकलीफ (Complaint)',
+            title: tr('chief_complaint', language),
             value: _complaintText(),
             onEdit: onEdit,
           );
           final tile2 = prakriti != null && prakriti['prakriti'] != null
               ? _buildSummaryTile(
                   icon: Icons.spa_rounded,
-                  title: 'प्रकृति (Provisional Prakriti)',
+                  title: tr('prakriti_title', language),
                   value: '${prakriti['prakriti']} (${_formatMarks(prakriti['marks'])})',
                   onEdit: onEdit,
                 )
               : _buildSummaryTile(
                   icon: Icons.sentiment_very_dissatisfied_rounded,
-                  title: 'दर्द की तीव्रता (Severity)',
-                  value: 'मध्यम दर्द (Moderate 4/10)',
+                  title: tr('severity', language),
+                  value: _severityText(),
                   onEdit: onEdit,
                 );
 
@@ -268,7 +268,7 @@ class ReportScreen extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text('Token $token', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF0D9488))),
-                        Text('$queue • कमरा नं. $room', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+                        Text('$queue - ${tr('room', language)} $room', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
                       ],
                     ),
                     const Icon(Icons.qr_code_2_rounded, size: 38, color: Color(0xFF0D9488)),
@@ -310,7 +310,7 @@ class ReportScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text('AIIMS / सरकारी अस्पताल', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
-              const Text('OPD टोकन पर्ची (Token Slip)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+              Text(tr('token_slip', language), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
               const Divider(color: Color(0xFFE2E8F0), thickness: 1, height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -325,7 +325,7 @@ class ReportScreen extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(queue, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)), maxLines: 1),
-              Text('कमरा नं. $room (Room $room)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF0D9488))),
+              Text('${tr('room', language)} $room', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF0D9488))),
             ],
           ),
           const Icon(Icons.qr_code_2_rounded, size: 36, color: Color(0xFF334155)),
