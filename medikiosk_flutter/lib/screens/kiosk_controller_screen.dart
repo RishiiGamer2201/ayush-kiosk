@@ -198,7 +198,6 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
   @override
   Widget build(BuildContext context) {
     final actions = List<String>.from(_client.screen['allowed_actions'] as List? ?? []);
-    final options = _client.options;
     final stage = _client.currentStage;
     final isConnected = _client.status == ConnectionStatus.connected;
 
@@ -207,7 +206,9 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
     final canRestart = isConnected;
     final canHelp = isConnected;
 
-    // Footer buttons (Pata nahi, Skip, No, Yes)
+    // Footer buttons. Yes/No were removed: on option screens they duplicated the cards the
+    // body already draws, and duplicating an answer in two places is how a patient ends up
+    // pressing the wrong one.
     final onDontKnow = (actions.contains('unknown') || stage == KioskStage.interview)
         ? () => _client.action('unknown')
         : null;
@@ -215,26 +216,6 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
     final onSkip = (actions.contains('skip') || stage == KioskStage.abha || stage == KioskStage.documents || stage == KioskStage.interview)
         ? () => _client.action('skip')
         : null;
-
-    VoidCallback? onYes;
-    final hasYesOption = options.any((o) => '${o['value']}'.toLowerCase() == 'yes');
-    if (hasYesOption) {
-      final yesOpt = options.firstWhere((o) => '${o['value']}'.toLowerCase() == 'yes');
-      onYes = () => _client.action('choose', yesOpt['value']);
-    } else if (actions.contains('confirm')) {
-      onYes = () => _client.action('confirm');
-    } else if (stage == KioskStage.interview || stage == KioskStage.consent) {
-      onYes = () => _client.action('answer', 'yes');
-    }
-
-    VoidCallback? onNo;
-    final hasNoOption = options.any((o) => '${o['value']}'.toLowerCase() == 'no');
-    if (hasNoOption) {
-      final noOpt = options.firstWhere((o) => '${o['value']}'.toLowerCase() == 'no');
-      onNo = () => _client.action('choose', noOpt['value']);
-    } else if (stage == KioskStage.interview || stage == KioskStage.consent) {
-      onNo = () => _client.action('answer', 'no');
-    }
 
     return KioskFrame(
       title: 'MediKiosk',
@@ -246,8 +227,6 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
       onStaffHelp: canHelp ? () => _client.action('help') : null,
       onDontKnow: onDontKnow,
       onSkip: onSkip,
-      onYes: onYes,
-      onNo: onNo,
       onSettings: _configure,
       body: Stack(
         children: [
@@ -897,7 +876,14 @@ class _WorkflowBodyState extends State<WorkflowBody> {
       return RegistrationScreen(
         initialProfile: PatientProfile(),
         cameraService: widget.cameraService!,
-        onRegister: (p) => client.action('choose', 'walk_in'),
+        // Previously this sent choose/'walk_in', which the flow read as the patient's *name* and
+        // then rejected as their age - so the form's contents were discarded and the button
+        // appeared dead. Send what the patient actually typed, in the order the flow asks.
+        onRegister: (profile) => client.answerAll([
+          profile.name.trim().isEmpty ? 'Patient' : profile.name.trim(),
+          '${profile.age ?? 35}',
+          profile.gender,
+        ]),
         onScanCard: widget.onScanCard ?? () {},
         isScanning: widget.isScanning,
         scanError: widget.scanError,

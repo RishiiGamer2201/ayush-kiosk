@@ -156,6 +156,7 @@ class KioskClient extends ChangeNotifier {
       if (_sessionId != id) {
         _clearPatient();
         _pending = null;
+        _queued.clear();
       }
       _sessionId = id;
       _token = msg['session_token'] as String;
@@ -254,7 +255,41 @@ class KioskClient extends ChangeNotifier {
         _ttsController.add(msg);
         break;
     }
+    _drainAnswers();
     notifyListeners();
+  }
+
+  /// True while an action is awaiting its acknowledgment. action() ignores calls made in
+  /// that window, so anything queueing answers must wait rather than fire and lose them.
+  bool get isBusy => _pending != null;
+
+  // Answers still to send, and the stage they were collected on. A screen that asks for several
+  // things at once - registration wants a name, an age and a gender - hands them over together;
+  // the flow asks one at a time and takes one answer per acknowledgment. The queue lives here
+  // rather than in a widget because only this object knows when the previous answer landed, and
+  // because widget state is rebuilt out from under a queue that outlives a single screen.
+  final List<String> _queued = [];
+  KioskStage? _queuedStage;
+
+  /// Answer a run of questions in order, one per acknowledgment.
+  void answerAll(List<String> values) {
+    _queued
+      ..clear()
+      ..addAll(values);
+    _queuedStage = currentStage;
+    _drainAnswers();
+  }
+
+  void _drainAnswers() {
+    if (_queued.isEmpty) return;
+    // Leaving the stage means the flow is no longer asking what these answer.
+    if (currentStage != _queuedStage) {
+      _queued.clear();
+      _queuedStage = null;
+      return;
+    }
+    if (_pending != null) return;
+    action('answer', _queued.removeAt(0));
   }
 
   void action(String action, [dynamic value]) {

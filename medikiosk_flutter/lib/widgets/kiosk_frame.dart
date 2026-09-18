@@ -13,8 +13,6 @@ class KioskFrame extends StatelessWidget {
   final VoidCallback? onDontKnow;
   final VoidCallback? onSettings;
   final VoidCallback? onRestart;
-  final VoidCallback? onYes;
-  final VoidCallback? onNo;
   final bool isListening;
   final bool isConnected;
   final String? title;
@@ -31,8 +29,6 @@ class KioskFrame extends StatelessWidget {
     this.onDontKnow,
     this.onSettings,
     this.onRestart,
-    this.onYes,
-    this.onNo,
     this.isListening = false,
     this.isConnected = true,
     this.title,
@@ -282,7 +278,7 @@ class KioskFrame extends StatelessWidget {
   }
 
   Widget _buildBottomBar(BuildContext context, bool isNarrow) {
-    final hasFooterControls = onDontKnow != null || onSkip != null || onNo != null || onYes != null;
+    final hasFooterControls = onDontKnow != null || onSkip != null;
 
     return Container(
       height: 62,
@@ -357,78 +353,6 @@ class KioskFrame extends StatelessWidget {
                             fontSize: isNarrow ? 12 : 13,
                             fontWeight: FontWeight.w800,
                             color: const Color(0xFFB45309),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-          // 3. No Button
-          if (onNo != null)
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: TactileButton(
-                  onPressed: onNo,
-                  height: 46,
-                  backgroundColor: const Color(0xFFFFF1F2),
-                  borderColor: const Color(0xFFFECDD3),
-                  shadowColor: const Color(0xFFFDA4AF),
-                  borderRadius: BorderRadius.circular(14),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.close_rounded, size: 18, color: Color(0xFFE11D48)),
-                      const SizedBox(width: 3),
-                      Flexible(
-                        child: Text(
-                          'नहीं',
-                          style: TextStyle(
-                            fontSize: isNarrow ? 12 : 13,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFFE11D48),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-          // 4. Yes Button
-          if (onYes != null)
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: TactileButton(
-                  onPressed: onYes,
-                  height: 46,
-                  backgroundColor: const Color(0xFFF0FDF4),
-                  borderColor: const Color(0xFFBBF7D0),
-                  shadowColor: const Color(0xFF86EFAC),
-                  borderRadius: BorderRadius.circular(14),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.check_rounded, size: 18, color: Color(0xFF15803D)),
-                      const SizedBox(width: 3),
-                      Flexible(
-                        child: Text(
-                          'हाँ',
-                          style: TextStyle(
-                            fontSize: isNarrow ? 12 : 13,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF15803D),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
