@@ -142,6 +142,40 @@ def _clinical_session(settings: Settings, llm: LocalLLMClinicalExtractor | None)
     return ClinicalSession(extractor=extractor, naturalizer=naturalizer)
 
 
+# Silence in front of every prompt, because the speaker is asleep between them.
+#
+# PulseAudio suspends an idle sink (module-suspend-on-idle) and this USB speaker reports a full
+# second of latency, so the first fraction of a prompt is played into a DAC that is still waking.
+# Measured on this hardware: with no lead-in "Choose your language" came back from the room as
+# "Fuse your language" and "Use your language" - the opening consonant gone. With 300 ms it is
+# heard correctly every time. That clipped onset is what sounded like a lisp; nothing was ever
+# wrong with the synthesis.
+#
+# Calibration, not a constant: a speaker that wakes faster needs less, and one behind a powered
+# amplifier may need more.
+SPEAKER_LEAD_IN_MS = 300
+
+
+def _with_lead_in(wav_bytes: bytes, milliseconds: int = SPEAKER_LEAD_IN_MS) -> bytes:
+    """Prepend silence so the speaker is awake before the first syllable arrives."""
+
+    try:
+        with wave.open(io.BytesIO(wav_bytes)) as source:
+            params = source.getparams()
+            frames = source.readframes(source.getnframes())
+    except (wave.Error, EOFError):
+        # Audio this cannot parse is played as-is rather than not at all.
+        return wav_bytes
+    padding = b"\x00" * (params.sampwidth * params.nchannels * params.framerate * milliseconds // 1000)
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as out:
+        out.setnchannels(params.nchannels)
+        out.setsampwidth(params.sampwidth)
+        out.setframerate(params.framerate)
+        out.writeframes(padding + frames)
+    return buffer.getvalue()
+
+
 def _play_on_speaker(wav_bytes: bytes, settings: Settings) -> None:
     """Play one prompt through the kiosk's echo-cancelled sink.
 
@@ -151,7 +185,7 @@ def _play_on_speaker(wav_bytes: bytes, settings: Settings) -> None:
     """
 
     with tempfile.NamedTemporaryFile(suffix=".wav") as handle:
-        handle.write(wav_bytes)
+        handle.write(_with_lead_in(wav_bytes))
         handle.flush()
         subprocess.run(
             ["paplay", f"--device={settings.speaker_sink}", handle.name],

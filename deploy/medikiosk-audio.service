@@ -1,0 +1,27 @@
+[Unit]
+# The kiosk's microphone and speaker are PulseAudio endpoints created by a module loaded at
+# runtime, so they live and die with the audio server. When PulseAudio restarted on this board the
+# module went with it: medikiosk_mic and medikiosk_speaker simply stopped existing, while the
+# kiosk carried on configured to use them. Nothing failed loudly - the tablet still drew screens
+# and the microphone was silently gone, which is the worst way for a kiosk to break.
+#
+# This recreates them whenever the audio server comes up, so the endpoints outlive a restart.
+Description=MediKiosk echo-cancelled audio endpoints
+After=pulseaudio.service
+Wants=pulseaudio.service
+PartOf=pulseaudio.service
+# Recreated on every audio-server start, not only at boot.
+BindsTo=pulseaudio.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/ubuntu/medikiosk
+# PulseAudio needs a moment after start before it will accept module loads.
+ExecStartPre=/bin/sleep 2
+ExecStart=/bin/bash /home/ubuntu/medikiosk/scripts/setup_jetson_audio.sh
+# Unloading on stop keeps a restart from stacking duplicate modules.
+ExecStop=/bin/bash -c 'for m in $(pactl list short modules | grep module-echo-cancel | cut -f1); do pactl unload-module "$m"; done'
+
+[Install]
+WantedBy=default.target
