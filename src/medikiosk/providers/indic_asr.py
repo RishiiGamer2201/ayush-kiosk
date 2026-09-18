@@ -26,6 +26,13 @@ import urllib.request
 from medikiosk.providers.whisper_provider import WhisperCppSTT, WhisperUnavailable
 
 
+# Hindi only, by measurement. The service also has a Tamil checkpoint and will serve it, but on
+# identical audio it scored mean CER 0.591 against whisper's 0.135, and its output was truncated -
+# leading characters missing on every clip, which reads like a vocab or preprocessing mismatch in
+# that decode path rather than a hard model limit. Until that is found, Tamil is whisper's.
+INDIC_LANGUAGES = frozenset({"hi"})
+
+
 class IndicConformerSTT:
     """Client for scripts/indic_asr_server.py: WAV in, Devanagari text out."""
 
@@ -48,9 +55,9 @@ class IndicConformerSTT:
         self._healthy_until = now + (30.0 if self._healthy else 5.0)
         return self._healthy
 
-    def transcribe(self, wav_bytes: bytes) -> str:
+    def transcribe(self, wav_bytes: bytes, language: str = "hi") -> str:
         request = urllib.request.Request(
-            f"{self.base_url}/asr",
+            f"{self.base_url}/asr?language={language}",
             data=wav_bytes,
             headers={"Content-Type": "audio/wav"},
             method="POST",
@@ -77,9 +84,9 @@ class RoutedSTT:
         return self.whisper.health() or bool(self.indic and self.indic.health())
 
     def transcribe(self, wav_bytes: bytes, language: str | None) -> tuple[str, str | None]:
-        if language == "hi" and self.indic is not None and self.indic.health():
+        if language in INDIC_LANGUAGES and self.indic is not None and self.indic.health():
             try:
-                return self.indic.transcribe(wav_bytes), "hi"
+                return self.indic.transcribe(wav_bytes, language), language
             except WhisperUnavailable:
-                pass  # degrade to whisper's Hindi rather than to silence
+                pass  # degrade to whisper for that language rather than to silence
         return self.whisper.transcribe(wav_bytes, language)

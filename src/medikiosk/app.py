@@ -1168,7 +1168,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     reading = f"heart rate unavailable: {error}"
                 flow.vitals_busy = False
                 if outcome is not None:
-                    flow.record_vitals(outcome.bpm, outcome.confident, outcome.status)
+                    flow.record_vitals(
+                        outcome.bpm,
+                        outcome.confident,
+                        outcome.status,
+                        outcome.breaths_per_min,
+                        outcome.breath_confident,
+                    )
                 else:
                     flow.record_vitals(None, False, reading)
                 await send_screen()

@@ -449,15 +449,31 @@ class KioskFlow:
         flow.consent = ConsentLedger.model_validate(data["consent"])
         return flow
 
-    def record_vitals(self, bpm: float | None, confident: bool, status: str) -> None:
-        """File one measurement as an ordinary answer, and hand the patient back to the hub.
+    def record_vitals(
+        self,
+        bpm: float | None,
+        confident: bool,
+        status: str,
+        breaths_per_min: float | None = None,
+        breath_confident: bool = False,
+    ) -> None:
+        """File one measurement as ordinary answers, and leave the patient on this screen.
 
         An estimate the signal maths would not vouch for is filed unresolved rather than as a
         vital sign: a number nobody can stand behind is worse on a clinical record than a gap.
+        The two rates are judged apart, because the breathing band needs a far longer clean
+        window than the pulse does - one camera pass routinely earns a heart rate and no
+        respiration, and saying so is more use to staff than one blended verdict.
         """
 
         self.vitals_busy = False
-        self.vitals = {"bpm": bpm, "confident": confident, "status": status}
+        self.vitals = {
+            "bpm": bpm,
+            "confident": confident,
+            "status": status,
+            "breaths_per_min": breaths_per_min,
+            "breath_confident": breath_confident,
+        }
         measured = bpm is not None and confident
         self.record_answer(
             "vitals.heart_rate",
@@ -466,6 +482,16 @@ class KioskFlow:
             "answered" if measured else "unresolved",
             field="heart_rate_bpm",
             value=bpm if measured else None,
+            method="camera",
+        )
+        breathed = breaths_per_min is not None and breath_confident
+        self.record_answer(
+            "vitals.breath_rate",
+            t("vitals_breath", self.language),
+            f"{breaths_per_min:.0f}/min" if breathed else "",
+            "answered" if breathed else "unresolved",
+            field="breaths_per_min",
+            value=breaths_per_min if breathed else None,
             method="camera",
         )
         # Stay here: this is the only screen that shows the reading, and staying is what makes a
@@ -1018,10 +1044,15 @@ class KioskFlow:
             reading = self.vitals
             if reading is None:
                 headline = t("vitals", self.language)
-            elif reading.get("bpm") is not None and reading.get("confident"):
-                headline = f"{t('vitals_result', self.language)}: {reading['bpm']:.0f}"
             else:
-                headline = t("vitals_failed", self.language)
+                parts = []
+                if reading.get("bpm") is not None and reading.get("confident"):
+                    parts.append(f"{t('vitals_result', self.language)}: {reading['bpm']:.0f}")
+                if reading.get("breaths_per_min") is not None and reading.get("breath_confident"):
+                    parts.append(
+                        f"{t('vitals_breath', self.language)}: {reading['breaths_per_min']:.0f}"
+                    )
+                headline = " · ".join(parts) if parts else t("vitals_failed", self.language)
             return {**base, "headline": headline, "vitals": reading}
         if self.stage is Stage.REVIEW:
             live = [a for a in self.answers if not a.get("superseded")]

@@ -20,7 +20,17 @@ import numpy as np
 
 # Long enough for the estimator, which needs MIN_WINDOW_S (8 s) of clean signal and rejects
 # stretches where the face was lost, and short enough that a patient will sit still for it.
-MEASURE_S = 20.0
+# The analysis grid the pulse estimator resamples onto; breathing is read on the same grid.
+FS = 30.0
+MEASURE_S = 30.0
+
+# Breathing band, in Hz: 0.1-0.5 is 6-30 breaths a minute. Anything slower is baseline drift,
+# anything faster is movement rather than respiration.
+BREATH_BAND = (0.1, 0.5)
+# Below this the window cannot resolve the band well enough to report a number at all.
+BREATH_MIN_WINDOW_S = 25.0
+# How far the spectral peak must stand above the band's median before it is called confident.
+BREATH_MIN_PROMINENCE = 3.0
 
 # One camera, one owner. A measurement holds this for its whole run; the preview takes it only
 # when nobody is measuring, and otherwise shows the frame the measurement last stored.
@@ -47,6 +57,51 @@ def _remember(frame, face_found: bool) -> None:
         _latest_face = face_found
 
 
+def estimate_breathing(signal: np.ndarray, fs: float) -> tuple[float | None, bool, float]:
+    """Breaths per minute from a uniformly sampled skin-colour trace, with its own confidence.
+
+    The trace is detrended by subtracting its mean, windowed, and read in the breathing band only.
+    Confidence is how far the peak stands above the median of that band: a real respiration shows
+    as one clear ridge, while a patient shifting in their seat spreads energy across the whole
+    band without a peak worth reporting.
+    """
+
+    if signal.size < int(BREATH_MIN_WINDOW_S * fs):
+        return None, False, 0.0
+    centred = signal - signal.mean()
+    if not np.isfinite(centred).all() or centred.std() == 0:
+        return None, False, 0.0
+    spectrum = np.abs(np.fft.rfft(centred * np.hanning(centred.size)))
+    freqs = np.fft.rfftfreq(centred.size, 1.0 / fs)
+    band = (freqs >= BREATH_BAND[0]) & (freqs <= BREATH_BAND[1])
+    if not band.any():
+        return None, False, 0.0
+    power = spectrum[band]
+    peak = float(freqs[band][int(np.argmax(power))])
+    median = float(np.median(power)) or 1e-9
+    prominence = float(power.max() / median)
+    return peak * 60.0, prominence >= BREATH_MIN_PROMINENCE, prominence
+
+
+def _configure(cv2, capture) -> None:
+    """Ask for MJPEG at 640x480/30.
+
+    The default YUYV negotiation on this camera delivers about five frames a second - uncompressed
+    640x480 at 30 fps does not fit the USB bus, so the driver quietly drops to a rate that does.
+    MJPEG is compressed on the camera, so the same bus carries more than twice the frames, and
+    frames are what the pulse estimate is made of. Failures are ignored: a camera that refuses
+    these settings still works at whatever it chose.
+    """
+
+    try:
+        capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+        capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        capture.set(cv2.CAP_PROP_FPS, 30)
+    except Exception:  # noqa: BLE001 - a fussy driver is not a failed measurement
+        pass
+
+
 def preview_jpeg(camera: int | str = 0) -> tuple[bytes | None, bool]:
     """The current camera view as a JPEG, and whether a face was found in it.
 
@@ -60,6 +115,7 @@ def preview_jpeg(camera: int | str = 0) -> tuple[bytes | None, bool]:
             import cv2
 
             capture = cv2.VideoCapture(camera)
+            _configure(cv2, capture)
             try:
                 if capture.isOpened():
                     for _ in range(3):  # the first frames off a USB camera are often black
@@ -78,11 +134,18 @@ def preview_jpeg(camera: int | str = 0) -> tuple[bytes | None, bool]:
 
 @dataclass(frozen=True)
 class Vitals:
-    """The outcome of one attempt. `bpm` is None unless there was a usable estimate."""
+    """The outcome of one attempt. A rate is None unless there was a usable estimate of it.
+
+    Heart rate and breath rate are judged separately: the pulse band is far easier to resolve in a
+    short window than the breathing band, so a measurement routinely has a trustworthy pulse and
+    no trustworthy respiration. Each carries its own confidence for that reason.
+    """
 
     bpm: float | None
     confident: bool
     status: str
+    breaths_per_min: float | None = None
+    breath_confident: bool = False
 
 
 def measure(camera: int | str = 0, seconds: float = MEASURE_S) -> Vitals:
@@ -110,6 +173,7 @@ def measure(camera: int | str = 0, seconds: float = MEASURE_S) -> Vitals:
     if not _camera.acquire(timeout=5.0):
         return Vitals(None, False, "camera busy")
     capture = cv2.VideoCapture(camera)
+    _configure(cv2, capture)
     if not capture.isOpened():
         capture.release()
         _camera.release()
@@ -167,9 +231,27 @@ def measure(camera: int | str = 0, seconds: float = MEASURE_S) -> Vitals:
         return Vitals(None, False, "no frames from camera")
     data = np.asarray(samples, dtype=np.float64)
     result, status = analyze_window(data[:, 0], data[:, 1:4], data[:, 4] > 0, seconds)
+
+    # Breathing is read from the same trace, on its own terms: it survives a window too short or
+    # too noisy for a pulse, and it fails on windows where the pulse came out fine.
+    breaths, breath_ok, _prominence = None, False, 0.0
+    valid = data[:, 4] > 0
+    if valid.sum() > 1:
+        times, green = data[valid, 0], data[valid, 2]
+        span = float(times[-1] - times[0])
+        if span >= BREATH_MIN_WINDOW_S:
+            grid = np.arange(times[0], times[-1], 1.0 / FS)
+            breaths, breath_ok, _prominence = estimate_breathing(
+                np.interp(grid, times, green), FS
+            )
+            if breaths is not None:
+                breaths = round(breaths, 1)
+
     if result is None:
         seen = float(data[:, 4].mean()) if len(data) else 0.0
         if seen < 0.5:
             return Vitals(None, False, "no face in view - point the camera at the patient's face")
-        return Vitals(None, False, status)
-    return Vitals(round(float(result.bpm), 1), bool(result.confident), "ok")
+        return Vitals(None, False, status, breaths, breath_ok)
+    return Vitals(
+        round(float(result.bpm), 1), bool(result.confident), "ok", breaths, breath_ok
+    )

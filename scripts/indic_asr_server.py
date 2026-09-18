@@ -27,6 +27,7 @@ from __future__ import annotations
 import base64
 import io
 import json
+from urllib.parse import parse_qs
 import os
 import sys
 import time
@@ -42,6 +43,8 @@ from asr.infer import ASRInference  # noqa: E402
 MAX_BODY = 8 * 1024 * 1024  # 15 s of 16 kHz mono PCM is ~480 KB; this is generous.
 
 engine = ASRInference(checkpoint_dir=os.path.join(ROOT, "asr", "checkpoints"))
+# ASRInference loads a checkpoint per language and dispatches on this; these are the two it has.
+LANGUAGES = ("hi", "ta")
 # One inference at a time: the GPU session is not worth contending on, and turns are serial.
 lock = Lock()
 
@@ -56,16 +59,17 @@ def silence_wav(seconds: float = 1.0) -> bytes:
     return buffer.getvalue()
 
 
-def transcribe(wav_bytes: bytes) -> str:
+def transcribe(wav_bytes: bytes, language: str = "hi") -> str:
     with lock:
-        result = engine.infer(base64.b64encode(wav_bytes).decode(), "hi")
+        result = engine.infer(base64.b64encode(wav_bytes).decode(), language)
     text = result.get("text") if isinstance(result, dict) else result
     return (text or "").strip()
 
 
 # The first call pays CUDA/TensorRT initialisation (tens of seconds). Pay it here, not on a
 # patient's first answer.
-transcribe(silence_wav())
+for _language in LANGUAGES:
+    transcribe(silence_wav(), _language)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -78,11 +82,16 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self) -> None:  # noqa: N802 - http.server API
-        self._json(200, {"model": "indicconformer-hi", "ready": True})
+        self._json(200, {"model": "indicconformer", "languages": list(LANGUAGES), "ready": True})
 
     def do_POST(self) -> None:  # noqa: N802 - http.server API
-        if self.path != "/asr":
+        path, _, query = self.path.partition("?")
+        if path != "/asr":
             self._json(404, {"error": "not found"})
+            return
+        language = parse_qs(query).get("language", ["hi"])[0]
+        if language not in LANGUAGES:
+            self._json(400, {"error": f"unsupported language {language!r}"})
             return
         length = int(self.headers.get("Content-Length") or 0)
         if not 0 < length <= MAX_BODY:
@@ -90,7 +99,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         started = time.monotonic()
         try:
-            text = transcribe(self.rfile.read(length))
+            text = transcribe(self.rfile.read(length), language)
         except Exception as exc:  # noqa: BLE001 - report the type, never crash the server
             self._json(500, {"error": type(exc).__name__})
             return
