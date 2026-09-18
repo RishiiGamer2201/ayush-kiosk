@@ -44,7 +44,7 @@ class PathwayHubScreen extends StatelessWidget {
           if (onSelectVitals != null)
             _HubPathway(
               title: 'स्मार्ट वाइटल्स',
-              subtitle: 'Camera Health Vitals (BP / HR)',
+              subtitle: 'Camera Heart Rate Check',
               badge: 'कैमरा जाँच • Smart Vitals',
               iconAsset: 'assets/icons/vitals.png',
               fallbackIcon: Icons.favorite_rounded,
