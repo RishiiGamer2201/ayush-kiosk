@@ -1111,7 +1111,13 @@ class KioskFlow:
                 # Each language is written in its own script, which is the icon: a patient who
                 # cannot read English still recognises their own writing.
                 "options": [
-                    {"value": code, "label": LANGUAGES[code].native_name, "icon": f"lang_{code}"}
+                    {
+                        "value": code,
+                        "label": LANGUAGES[code].native_name,
+                        # The label is the script; the alias is the name said out loud.
+                        "aliases": aliases(f"language_{code}", "en"),
+                        "icon": f"lang_{code}",
+                    }
                     for code in LANGUAGE_CODES
                 ],
             }

@@ -32,6 +32,17 @@ BREATH_MIN_WINDOW_S = 25.0
 # How far the spectral peak must stand above the band's median before it is called confident.
 BREATH_MIN_PROMINENCE = 3.0
 
+# Exposure. These are calibration, not constants of nature: the right values depend on the lamp
+# over the kiosk and on the camera, so they are named here to be re-tuned rather than hunted for.
+#
+# Measured on this board, indoors, with the patient lit only by room light: the camera's own
+# auto-exposure left a face at green 36, under the 40 the pulse estimator needs, and two
+# measurements a minute apart read 50.5 and 178.4 bpm - noise harmonics, not a pulse. With these,
+# the same face reads green 119 and the same two runs read 68.6 and 62.4. A brighter room needs
+# lower numbers; a dark one may need a lamp rather than more gain, which only amplifies noise.
+CAMERA_BRIGHTNESS = 64
+CAMERA_GAIN = 64
+
 # One camera, one owner. A measurement holds this for its whole run; the preview takes it only
 # when nobody is measuring, and otherwise shows the frame the measurement last stored.
 _camera = threading.Lock()
@@ -98,6 +109,8 @@ def _configure(cv2, capture) -> None:
         capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         capture.set(cv2.CAP_PROP_FPS, 30)
+        capture.set(cv2.CAP_PROP_BRIGHTNESS, CAMERA_BRIGHTNESS)
+        capture.set(cv2.CAP_PROP_GAIN, CAMERA_GAIN)
     except Exception:  # noqa: BLE001 - a fussy driver is not a failed measurement
         pass
 

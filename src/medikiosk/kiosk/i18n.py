@@ -302,6 +302,17 @@ TEXT: dict[str, dict[str, str]] = {
 # question on a patient's behalf, which is worse than not matching at all. The other seven
 # languages match on their labels until a speaker of each adds theirs.
 ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
+    # Spoken on the opening screen, before any language is chosen, so these are not translated:
+    # they are how each language is named out loud, in English and in common roman spellings.
+    "language_en": {"en": ("english", "angrezi", "angreji", "inglish")},
+    "language_hi": {"en": ("hindi", "hindee")},
+    "language_bn": {"en": ("bengali", "bangla", "bangali")},
+    "language_mr": {"en": ("marathi", "marathee")},
+    "language_te": {"en": ("telugu", "telegu")},
+    "language_ta": {"en": ("tamil", "tamizh", "thamizh")},
+    "language_gu": {"en": ("gujarati", "gujrati")},
+    "language_kn": {"en": ("kannada", "kannad", "canada")},
+    "language_pa": {"en": ("punjabi", "panjabi")},
     "who_self": {
         "en": ("myself", "me", "i am the patient", "self", "my own"),
         "hi": ("मैं", "मुझे", "खुद", "स्वयं", "अपना", "मेरा"),
