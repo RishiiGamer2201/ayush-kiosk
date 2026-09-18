@@ -188,8 +188,7 @@ ITEMS: tuple[Item, ...] = (
           _c("muslim", "Muslim", "मुस्लिम", icon="circle"),
           _c("christian", "Christian", "ईसाई", icon="circle"),
           _c("sikh", "Sikh", "सिख", icon="circle"),
-          _c("other", "Other", "अन्य", icon="dots"),
-          _c("undisclosed", "Prefer not to say", "बताना नहीं चाहते", icon="cross"))),
+          _c("other", "Other", "अन्य", icon="dots"))),
     Item("pk_diet", "4", "demographic",
          "Diet", "आहार",
          (_c("vegetarian", "Vegetarian", "निरामिष", icon="leaf"),
@@ -203,8 +202,7 @@ ITEMS: tuple[Item, ...] = (
          (_c("under_1l", "Below 1 lakh", "1 लाख से कम", icon="coin"),
           _c("1l_3l", "1 to 3 lakh", "1 से 3 लाख", icon="coin"),
           _c("3l_5l", "3 to 5 lakh", "3 से 5 लाख", icon="coin"),
-          _c("above_5l", "Above 5 lakh", "5 लाख से अधिक", icon="coin"),
-          _c("undisclosed", "Prefer not to say", "बताना नहीं चाहते", icon="cross"))),
+          _c("above_5l", "Above 5 lakh", "5 लाख से अधिक", icon="coin"))),
 
     # ------------------------------------------------------------------ 9  data quality gate
     Item("pk_weight_confounder", "9", "physical",

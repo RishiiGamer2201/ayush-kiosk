@@ -25,15 +25,33 @@ class OptionIcon extends StatelessWidget {
 
   /// Server icon name -> glyph. Material icons are used deliberately: they are already drawn in a
   /// consistent weight, they scale, and they need no asset pipeline or licence review.
-  static const Map<String, IconData> _glyphs = {
     // Who is answering
     'person_one': Icons.person,
     'person_two': Icons.people,
+    'person': Icons.person_outline,
+    'group': Icons.groups,
+
+    // Demographics & Life
+    'rings': Icons.favorite,
+    'desk': Icons.desk,
+    'field': Icons.nature_people,
+    'home': Icons.home,
+    'book': Icons.school,
+    'dots': Icons.more_horiz,
+    'circle': Icons.circle_outlined,
+    'leaf': Icons.eco,
+    'plate': Icons.restaurant,
+    'plate_small': Icons.lunch_dining,
+    'plate_large': Icons.dinner_dining,
+    'coin': Icons.currency_rupee,
 
     // Body build
     'body_thin': Icons.accessibility,
     'body_medium': Icons.accessibility_new,
     'body_heavy': Icons.emoji_people,
+
+    // Hair & Face
+    'hair': Icons.face,
 
     // Skin
     'skin_dry': Icons.grain,
@@ -71,9 +89,11 @@ class OptionIcon extends StatelessWidget {
     'diet_mixed': Icons.set_meal,
     'diet_irregular': Icons.more_time,
 
-    // Yes / no
+    // Yes / no / checks / crosses
     'yes': Icons.check_circle,
     'no': Icons.cancel,
+    'check': Icons.check_circle_outline,
+    'cross': Icons.cancel_outlined,
   };
 
   /// Languages are shown in their own script, which is itself the icon - a patient recognises

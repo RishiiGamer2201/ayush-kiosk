@@ -257,7 +257,7 @@ NODES = [
     ("ROTS_004", "Do you have people around you who can provide support - family, friends, or community?",
      "Social support is a key protective factor and affects disposition planning.",
      "SINGLE_SELECT",
-     '["Strong support: family/friends available and actively helping", "Some support: people available but not always helpful", "Limited support: few people around", "Isolated: I am completely alone", "Support from professionals only", "I prefer not to say"]',
+     '["Strong support: family/friends available and actively helping", "Some support: people available but not always helpful", "Limited support: few people around", "Isolated: I am completely alone", "Support from professionals only"]',
      None, None, 2, "ROTS", None, 0, 1, 40, None),
 
     ("ROTS_005", "How are these problems affecting your ability to carry out daily activities?",
@@ -511,7 +511,7 @@ NODES = [
     ("ROS_GI_007", "Do you drink alcohol? How much and how frequently?",
      "AUDIT-C proxy. >14 units/week (men) or >7 units (women) = hazardous. Alcohol liver disease risk.",
      "SINGLE_SELECT",
-     '["I do not drink alcohol", "Occasionally (< 1 drink/week)", "Socially (1-7 units/week)", "Regularly (8-14 units/week)", "Heavy use (15-28 units/week)", "Very heavy / Daily (> 28 units/week)", "Prefer not to say"]',
+     '["I do not drink alcohol", "Occasionally (< 1 drink/week)", "Socially (1-7 units/week)", "Regularly (8-14 units/week)", "Heavy use (15-28 units/week)", "Very heavy / Daily (> 28 units/week)"]',
      None, None, 3, "ROS", "GI", 0, 0, 70, "LOINC:72109-8"),
 
     ("ROS_GI_008", "Have you been diagnosed with any liver, gallbladder, or pancreatic disease?",
@@ -732,7 +732,7 @@ NODES = [
     ("ROS_PSY_008", "Are you currently using alcohol or drugs in a way that is causing problems in your life?",
      "CAGE/AUDIT proxy. Substance use disorder: tolerance, withdrawal, loss of control.",
      "SINGLE_SELECT",
-     '["No", "Occasionally in excess but not causing problems", "Yes - causing some problems", "Yes - significantly impacting my life", "Prefer not to answer"]',
+     '["No", "Occasionally in excess but not causing problems", "Yes - causing some problems", "Yes - significantly impacting my life"]',
      None, None, 3, "ROS", "PSYCH", 0, 0, 80, None),
 
     # ROS SYSTEM 12: ENDOCRINE
@@ -858,7 +858,7 @@ NODES = [
     ("PMH_005", "Do you have HIV or any other condition that weakens your immune system?",
      "HIV status changes infection differential radically (PCP, CMV, cryptococcal meningitis, TB).",
      "SINGLE_SELECT",
-     '["No", "HIV positive - on ART, well controlled", "HIV positive - not on treatment", "HIV positive - not sure of status", "Other immunosuppression", "Prefer not to say"]',
+     '["No", "HIV positive - on ART, well controlled", "HIV positive - not on treatment", "HIV positive - not sure of status", "Other immunosuppression"]',
      None, None, 4, "PMH", "INFECT", 0, 0, 50, None),
 
     ("PMH_006", "Do you have any other significant medical conditions a doctor should know about?",
@@ -920,13 +920,13 @@ NODES = [
     ("SOH_003", "How much alcohol do you drink and how often?",
      "Alcohol: >= 5 units/day = high risk. CAGE >= 2 = alcohol dependence likely.",
      "SINGLE_SELECT",
-     '["I do not drink", "Rarely (< 1 unit/week)", "Moderately (1-14 units/week)", "Heavily (15-35 units/week)", "Very heavily (> 35 units/week)", "Binge drinker", "Prefer not to say"]',
+     '["I do not drink", "Rarely (< 1 unit/week)", "Moderately (1-14 units/week)", "Heavily (15-35 units/week)", "Very heavily (> 35 units/week)", "Binge drinker"]',
      None, None, 4, "PMH", "SOCIAL", 0, 0, 180, None),
 
     ("SOH_004", "Do you use any recreational or illicit substances?",
      "IV drug use = HIV/hepatitis/endocarditis risk; stimulants = cardiac/psychiatric.",
      "MULTI_SELECT",
-     '["No recreational drug use", "Cannabis", "Opioids (misuse)", "Stimulants (cocaine, amphetamine)", "Benzodiazepines (not prescribed)", "Intravenous drug use", "Inhalants / Solvents", "Other / Prefer not to say"]',
+     '["No recreational drug use", "Cannabis", "Opioids (misuse)", "Stimulants (cocaine, amphetamine)", "Benzodiazepines (not prescribed)", "Intravenous drug use", "Inhalants / Solvents", "Other"]',
      None, None, 4, "PMH", "SOCIAL", 0, 0, 190, None),
 
     ("SOH_005", "Who do you live with? What is your home environment like?",
