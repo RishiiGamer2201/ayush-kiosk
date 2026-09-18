@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     flite_voice_dir: Path = Path("/home/ubuntu/bhashini_models/tts/flite/voices")
     mic_source: str = "medikiosk_mic"
     speaker_sink: str = "medikiosk_speaker"
+    # Who owns the microphone and speaker during a tablet session. Off: the tablet plays prompts
+    # and streams its own microphone, which is right when the tablet is the whole kiosk. On: the
+    # server plays through speaker_sink and records from mic_source, and the tablet is only the
+    # screen - which is what a kiosk with a speaker and microphone in its enclosure wants, and
+    # keeps patient audio off the tablet's playback path entirely.
+    kiosk_audio: bool = False
     silero_model_path: Path = Path("offline/jetson/models/silero_vad.onnx")
     vad_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
     vad_start_ms: int = Field(default=160, ge=32)

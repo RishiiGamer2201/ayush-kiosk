@@ -61,7 +61,9 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
     });
     _connect();
     _audio.initialize().then((available) {
-      if (available && mounted) {
+      // The kiosk's microphone is announced in session.ready, which may not have arrived yet, so
+      // this is re-checked in _updateMicrophone once it has.
+      if (available && mounted && !_client.kioskOwnsAudio) {
         _updateMicrophone();
         _audio.startListening();
       }
@@ -131,7 +133,9 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
       case 'tts.audio':
         final generation = _speechGeneration;
         final audio = message['audio'];
-        if (audio is! String) return;
+        // The kiosk plays through its own speaker and sends no audio; this arrives only when the
+        // tablet owns playback.
+        if (_client.kioskOwnsAudio || audio is! String) return;
         _speechPending = true;
         _client.playbackState(true);
         _updateMicrophone();

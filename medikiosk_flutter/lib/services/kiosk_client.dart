@@ -36,6 +36,9 @@ class KioskClient extends ChangeNotifier {
   bool _accumulate = false;
   String _narrative = '';
   bool _voiceAvailable = false;
+  // Who owns the microphone and speaker. The kiosk's own hardware, when it has any; otherwise
+  // this tablet. Announced by the server in session.ready.
+  bool _kioskOwnsAudio = false;
   bool _processing = false;
   bool _playing = false;
   Map<String, dynamic>? _lastReport;
@@ -68,6 +71,8 @@ class KioskClient extends ChangeNotifier {
   String? get answerUi => _answerUi;
   String? get error => _error;
   bool get voiceAvailable => _voiceAvailable;
+  /// True when the kiosk plays prompts and records the patient itself, and this tablet must not.
+  bool get kioskOwnsAudio => _kioskOwnsAudio;
   bool get isProcessing => _processing || _pending != null;
   bool get isEmergency => currentStage == KioskStage.emergency;
   String get lastTranscript => _lastTranscript;
@@ -154,6 +159,10 @@ class KioskClient extends ChangeNotifier {
       }
       _sessionId = id;
       _token = msg['session_token'] as String;
+      // Flat key, and on session.id rather than session.ready: ready arrives before this client
+      // has a session id and is discarded unread, so the owner travels with the first message it
+      // actually adopts.
+      _kioskOwnsAudio = msg['audio_owner'] == 'kiosk';
       _revision = (msg['revision'] as num).toInt();
     } else {
       if (id != _sessionId || _sessionId == null) return;
@@ -276,6 +285,8 @@ class KioskClient extends ChangeNotifier {
   }
 
   void sendAudio(Uint8List pcm) {
+    // Nothing to send when the kiosk is listening with its own microphone.
+    if (_kioskOwnsAudio) return;
     if (_status != ConnectionStatus.connected || !_voiceAvailable || _playing || isProcessing || _sessionId == null) return;
     if (_captureEpoch != epoch) {
       send({'type': 'audio.start', 'session_id': _sessionId, 'revision': _revision});

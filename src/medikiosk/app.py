@@ -7,6 +7,8 @@ import json
 import os
 import socket
 import sqlite3
+import subprocess
+import tempfile
 import time
 import uuid
 import wave
@@ -138,6 +140,24 @@ def _clinical_session(settings: Settings, llm: LocalLLMClinicalExtractor | None)
             settings.edge_language,
         )
     return ClinicalSession(extractor=extractor, naturalizer=naturalizer)
+
+
+def _play_on_speaker(wav_bytes: bytes, settings: Settings) -> None:
+    """Play one prompt through the kiosk's echo-cancelled sink.
+
+    Playback must go to the cancellation sink rather than straight to the sound card, or the
+    canceller has no reference for what the speaker emitted and the microphone hears the prompt
+    as if a patient had said it.
+    """
+
+    with tempfile.NamedTemporaryFile(suffix=".wav") as handle:
+        handle.write(wav_bytes)
+        handle.flush()
+        subprocess.run(
+            ["paplay", f"--device={settings.speaker_sink}", handle.name],
+            check=False,
+            timeout=120,
+        )
 
 
 def _wav_pcm_and_rate(wav_bytes: bytes) -> tuple[bytes, int]:
@@ -730,6 +750,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         send_lock = asyncio.Lock()
         turn_tasks: set[asyncio.Task[Any]] = set()
         stt_task: asyncio.Task[Any] | None = None
+        mic_task: asyncio.Task[Any] | None = None
         tts_task: asyncio.Task[Any] | None = None
         idle_task: asyncio.Task[Any] | None = None
         # The question this session just asked, so a bare "three days" or "haan" binds to that
@@ -784,6 +805,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             except Exception as exc:
                 use_local = False
                 log("vad_unavailable", message=str(exc))
+        kiosk_audio = bool(active_settings.kiosk_audio) and use_local
         local_segmenter = SpeechSegmenter(
             threshold=active_settings.vad_threshold,
             start_ms=active_settings.vad_start_ms,
@@ -829,15 +851,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 wav_bytes = await asyncio.to_thread(voices.synthesize, text, lang)
                 if epoch != (session_id, guard.revision):
                     return
-                pcm, rate = _wav_pcm_and_rate(wav_bytes)
-                await send(
-                    {
-                        "type": "tts.audio",
-                        "encoding": "linear16",
-                        "sample_rate": rate,
-                        "audio": base64.b64encode(pcm).decode("ascii"),
-                    }
-                )
+                if kiosk_audio:
+                    # The kiosk's own speaker. paplay blocks for the length of the prompt, so it
+                    # runs off the event loop; the tablet is told the prompt is playing so it can
+                    # show that, but it is sent no audio to play.
+                    await asyncio.to_thread(_play_on_speaker, wav_bytes, active_settings)
+                    if epoch != (session_id, guard.revision):
+                        return
+                else:
+                    pcm, rate = _wav_pcm_and_rate(wav_bytes)
+                    await send(
+                        {
+                            "type": "tts.audio",
+                            "encoding": "linear16",
+                            "sample_rate": rate,
+                            "audio": base64.b64encode(pcm).decode("ascii"),
+                        }
+                    )
                 await send({"type": "tts.end"})
             except asyncio.CancelledError:
                 raise
@@ -1140,7 +1170,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 active_sessions[session_id] = {"flow": flow, "guard": guard, "captures": {}}
                 local_language = active_settings.edge_language
                 local_language_locked = False
-                await send({"type": "session.id", "session_token": guard.token})
+                await send(
+                    {
+                        "type": "session.id",
+                        "session_token": guard.token,
+                        # session.ready carries this too, but the tablet drops that message: it
+                        # arrives before the session id exists, and the client discards anything
+                        # it cannot attribute to a known session. session.id is the first message
+                        # it actually adopts, so the audio owner has to travel here as well or the
+                        # tablet would keep playing prompts and streaming its microphone.
+                        "audio_owner": "kiosk" if kiosk_audio else "tablet",
+                    }
+                )
             elif effect == "finalize":
                 # Provisioned for a hospital, and the patient has not yet been asked whether
                 # this record may be sent there. Ask now, on the record they just reviewed;
@@ -1445,6 +1486,41 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             text, detected = await asyncio.to_thread(stt.transcribe, wav_bytes, pin)
             return text, pin or detected
 
+        async def run_local_microphone() -> None:
+            """Feed the kiosk's own microphone into the queue the tablet would otherwise fill.
+
+            Frames are dropped while a prompt is playing and while no capture epoch is current,
+            which is the same gate the tablet's frames pass. The echo canceller removes most of
+            the kiosk's voice; this makes sure the rest is never even offered to the recognizer.
+            """
+
+            from medikiosk.edge.runtime import MicrophoneStream
+
+            def read_frames(stream: Any) -> bytes:
+                return stream.frame()
+
+            try:
+                with MicrophoneStream(active_settings.mic_source) as stream:
+                    log("kiosk_microphone", source=active_settings.mic_source)
+                    while True:
+                        frame = await asyncio.to_thread(read_frames, stream)
+                        if playback_active or capture_epoch != (session_id, guard.revision):
+                            continue
+                        if audio_queue.full():
+                            audio_queue.get_nowait()
+                        audio_queue.put_nowait(frame)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - a dead microphone must not kill the session
+                log("kiosk_microphone_failed", message=str(exc))
+                await send(
+                    {
+                        "type": "error",
+                        "stage": "audio",
+                        "message": "The kiosk microphone is unavailable; ask staff for help",
+                    }
+                )
+
         async def run_local_stt() -> None:
             """Frame the browser's raw PCM into VAD-sized windows and turn-detect locally.
 
@@ -1526,8 +1602,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "audio": {
                     "sample_rate": 16000,
                     "encoding": "linear16",
-                    "aec": "browser-webrtc",
-                    "noise_suppression": "browser-webrtc",
+                    # "kiosk" means the speaker and microphone are the kiosk's own and the tablet
+                    # must neither play prompts nor stream its microphone.
+                    "owner": "kiosk" if kiosk_audio else "tablet",
+                    "aec": "webrtc-pulse" if kiosk_audio else "browser-webrtc",
+                    "noise_suppression": "webrtc-pulse" if kiosk_audio else "browser-webrtc",
                     "local_vad": "energy",
                     "server_vad": "saaras" if use_cloud else ("silero" if use_local else "none"),
                 },
@@ -1843,13 +1922,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 mode="local" if use_local else "touch-only",
                 resumed=restored is not None,
             )
-            await send({"type": "session.id", "session_token": guard.token})
+            await send(
+                {
+                    "type": "session.id",
+                    "session_token": guard.token,
+                    # session.ready carries this too, but the tablet drops that message: it
+                    # arrives before the session id exists, and the client discards anything
+                    # it cannot attribute to a known session. session.id is the first message
+                    # it actually adopts, so the audio owner has to travel here as well or the
+                    # tablet would keep playing prompts and streaming its microphone.
+                    "audio_owner": "kiosk" if kiosk_audio else "tablet",
+                }
+            )
             if intake_complete:
                 await send({"type": "flow.report", "data": flow.report})
             await send_screen()
             idle_task = asyncio.create_task(watch_idle(), name=f"idle-{session_id}")
             if use_local:
                 stt_task = asyncio.create_task(run_local_stt(), name=f"stt-local-{session_id}")
+                if kiosk_audio:
+                    mic_task = asyncio.create_task(
+                        run_local_microphone(), name=f"mic-local-{session_id}"
+                    )
                 await send(
                     {
                         "type": "configuration.required",
@@ -1983,6 +2077,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 task.cancel()
             if turn_tasks:
                 await asyncio.gather(*turn_tasks, return_exceptions=True)
+            if mic_task:
+                # Before the queue sentinel: this is what closes parecord, and a session that
+                # leaked one would hold the microphone against the next patient.
+                mic_task.cancel()
+                await asyncio.gather(mic_task, return_exceptions=True)
             if stt_task:
                 stt_task.cancel()
                 await asyncio.gather(stt_task, return_exceptions=True)
