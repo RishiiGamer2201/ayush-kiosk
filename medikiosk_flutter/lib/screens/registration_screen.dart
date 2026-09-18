@@ -68,93 +68,98 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         final isWide = constraints.maxWidth >= 650;
         final isBounded = constraints.hasBoundedHeight;
 
-        final formContent = Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            // Name Input
-            TextField(
-              controller: _nameController,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-              decoration: InputDecoration(
-                labelText: 'मरीज़ का नाम (Patient Name)',
-                prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF0D9488)),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+        Widget buildFormFields() {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Name Input
+              TextField(
+                controller: _nameController,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                decoration: InputDecoration(
+                  labelText: 'मरीज़ का नाम (Patient Name)',
+                  prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF0D9488)),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                ),
               ),
-            ),
+              const SizedBox(height: 10),
 
-            // Age Input with Steppers
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _ageController,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                    decoration: InputDecoration(
-                      labelText: 'उम्र (Age in Years)',
-                      prefixIcon: const Icon(Icons.cake_outlined, color: Color(0xFF0D9488)),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+              // Age Input with Steppers
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _ageController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      decoration: InputDecoration(
+                        labelText: 'उम्र (Age in Years)',
+                        prefixIcon: const Icon(Icons.cake_outlined, color: Color(0xFF0D9488)),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                TactileButton(
-                  onPressed: () {
-                    final curr = int.tryParse(_ageController.text) ?? 30;
-                    if (curr > 1) _ageController.text = (curr - 1).toString();
-                  },
-                  width: 44,
-                  height: 44,
-                  borderRadius: BorderRadius.circular(12),
-                  child: const Text('−', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(width: 6),
-                TactileButton(
-                  onPressed: () {
-                    final curr = int.tryParse(_ageController.text) ?? 30;
-                    if (curr < 120) _ageController.text = (curr + 1).toString();
-                  },
-                  width: 44,
-                  height: 44,
-                  borderRadius: BorderRadius.circular(12),
-                  child: const Text('+', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-
-            // Gender Selector 3D Pills
-            Row(
-              children: [
-                _buildGenderPill('Male', 'पुरुष (M)', Icons.male_rounded),
-                const SizedBox(width: 8),
-                _buildGenderPill('Female', 'महिला (F)', Icons.female_rounded),
-                const SizedBox(width: 8),
-                _buildGenderPill('Other', 'अन्य (O)', Icons.transgender_rounded),
-              ],
-            ),
-
-            // ABHA Number
-            TextField(
-              controller: _abhaController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-              decoration: InputDecoration(
-                labelText: 'ABHA / आधार संख्या (वैकल्पिक Optional)',
-                prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFF0D9488)),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                  const SizedBox(width: 8),
+                  TactileButton(
+                    onPressed: () {
+                      final curr = int.tryParse(_ageController.text) ?? 30;
+                      if (curr > 1) _ageController.text = (curr - 1).toString();
+                    },
+                    width: 44,
+                    height: 44,
+                    borderRadius: BorderRadius.circular(12),
+                    child: const Text('−', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 6),
+                  TactileButton(
+                    onPressed: () {
+                      final curr = int.tryParse(_ageController.text) ?? 30;
+                      if (curr < 120) _ageController.text = (curr + 1).toString();
+                    },
+                    width: 44,
+                    height: 44,
+                    borderRadius: BorderRadius.circular(12),
+                    child: const Text('+', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
-            ),
-          ],
-        );
+              const SizedBox(height: 10),
+
+              // Gender Selector 3D Pills
+              Row(
+                children: [
+                  _buildGenderPill('Male', 'पुरुष (M)', Icons.male_rounded),
+                  const SizedBox(width: 8),
+                  _buildGenderPill('Female', 'महिला (F)', Icons.female_rounded),
+                  const SizedBox(width: 8),
+                  _buildGenderPill('Other', 'अन्य (O)', Icons.transgender_rounded),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              // ABHA Number
+              TextField(
+                controller: _abhaController,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                decoration: InputDecoration(
+                  labelText: 'ABHA / आधार संख्या (वैकल्पिक Optional)',
+                  prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFF0D9488)),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ],
+          );
+        }
 
         final cameraContent = Container(
           decoration: BoxDecoration(
@@ -218,6 +223,25 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
         );
 
+        final submitButton = TactileButton(
+          onPressed: _submit,
+          height: 52,
+          isSuccess: true,
+          borderRadius: BorderRadius.circular(16),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.check_circle_rounded, color: Colors.white, size: 22),
+              SizedBox(width: 8),
+              Text(
+                'मरीज़ जोड़ें व आगे बढ़ें (Register & Continue) ➔',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white),
+              ),
+            ],
+          ),
+        );
+
         final body = Column(
           children: [
             // Top Title
@@ -268,40 +292,55 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     ? Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(flex: 5, child: formContent),
+                          Expanded(
+                            flex: 5,
+                            child: SingleChildScrollView(
+                              physics: const BouncingScrollPhysics(),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  buildFormFields(),
+                                  const SizedBox(height: 12),
+                                  submitButton,
+                                ],
+                              ),
+                            ),
+                          ),
                           const SizedBox(width: 14),
                           Expanded(flex: 4, child: cameraContent),
                         ],
                       )
-                    : (_showScannerOnMobile ? cameraContent : formContent),
+                    : (_showScannerOnMobile
+                        ? cameraContent
+                        : SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                buildFormFields(),
+                                const SizedBox(height: 12),
+                                submitButton,
+                              ],
+                            ),
+                          )),
               )
             else
-              SizedBox(
-                height: 280,
-                child: formContent,
+              SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  children: [
+                    buildFormFields(),
+                    const SizedBox(height: 12),
+                    submitButton,
+                  ],
+                ),
               ),
 
-            const SizedBox(height: 8),
-
-            // Bottom Submit Button
-            TactileButton(
-              onPressed: _submit,
-              height: 52,
-              isSuccess: true,
-              borderRadius: BorderRadius.circular(16),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.check_circle_rounded, color: Colors.white, size: 22),
-                  SizedBox(width: 8),
-                  Text(
-                    'मरीज़ जोड़ें व आगे बढ़ें (Register & Continue) ➔',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
+            if (isWide) ...[
+              const SizedBox(height: 8),
+              // Bottom Submit Button for Wide displays
+              submitButton,
+            ],
           ],
         );
 
@@ -324,14 +363,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           children: [
             Icon(icon, size: 18, color: isSelected ? Colors.white : const Color(0xFF0D9488)),
             const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: isSelected ? Colors.white : const Color(0xFF0F172A),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 1,
             ),
           ],
         ),

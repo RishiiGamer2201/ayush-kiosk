@@ -114,23 +114,25 @@ class _ChoiceScreenState extends State<ChoiceScreen> {
 
             const SizedBox(height: 10),
 
-            // Clamped Options Grid (Strictly zero scrolling)
+            // Clamped Options Grid (scrollable if height is constrained)
             Expanded(
               child: LayoutBuilder(
                 builder: (context, box) {
                   final crossCount = (box.maxWidth > 550 && count > 2) ? 2 : 1;
                   final rows = (count / crossCount).ceil();
                   final double spacing = 10.0;
-                  final double itemHeight = (box.maxHeight - (rows - 1) * spacing) / rows;
+                  final double itemHeight = (box.maxHeight - (rows - 1) * spacing) / (rows > 0 ? rows : 1);
+                  final bool canFit = itemHeight > 55;
+                  final double effectiveHeight = canFit ? itemHeight : 65;
 
                   return GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
+                    physics: canFit ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
                     shrinkWrap: true,
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: crossCount,
                       mainAxisSpacing: spacing,
                       crossAxisSpacing: spacing,
-                      mainAxisExtent: itemHeight > 55 ? itemHeight : 65,
+                      mainAxisExtent: effectiveHeight,
                     ),
                     itemCount: count,
                     itemBuilder: (context, idx) {

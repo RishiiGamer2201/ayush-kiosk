@@ -54,97 +54,108 @@ class ProblemScreen extends StatelessWidget {
       builder: (context, constraints) {
         final isBounded = constraints.hasBoundedHeight;
 
-        final body = Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Top Split: Voice vs Show on Body
-            Row(
-              children: [
-                Expanded(
-                  child: TactileButton(
-                    onPressed: onSpeak,
-                    height: 54,
-                    backgroundColor: isListening ? const Color(0xFFEFF6FF) : const Color(0xFFF0FDFA),
-                    borderColor: isListening ? const Color(0xFF60A5FA) : const Color(0xFF5EEAD4),
-                    shadowColor: isListening ? const Color(0xFF3B82F6) : const Color(0xFF0D9488),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.mic_rounded,
-                          size: 24,
-                          color: isListening ? const Color(0xFF2563EB) : const Color(0xFF0D9488),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          isListening ? 'बोलिए... (Listening)' : 'बोलकर बताएं (Speak)',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            color: isListening ? const Color(0xFF1D4ED8) : const Color(0xFF0F766E),
+        final bool canFlex = isBounded && constraints.maxHeight >= 360;
+
+        Widget buildContent({required bool useFlex}) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Top Split: Voice vs Show on Body
+              Row(
+                children: [
+                  Expanded(
+                    child: TactileButton(
+                      onPressed: onSpeak,
+                      height: 52,
+                      backgroundColor: isListening ? const Color(0xFFEFF6FF) : const Color(0xFFF0FDFA),
+                      borderColor: isListening ? const Color(0xFF60A5FA) : const Color(0xFF5EEAD4),
+                      shadowColor: isListening ? const Color(0xFF3B82F6) : const Color(0xFF0D9488),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.mic_rounded,
+                            size: 22,
+                            color: isListening ? const Color(0xFF2563EB) : const Color(0xFF0D9488),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Text(
+                            isListening ? 'बोलिए... (Listening)' : 'बोलकर बताएं (Speak)',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                              color: isListening ? const Color(0xFF1D4ED8) : const Color(0xFF0F766E),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TactileButton(
-                    onPressed: onShowOnBody,
-                    height: 54,
-                    backgroundColor: const Color(0xFFFFFBEB),
-                    borderColor: const Color(0xFFFDE68A),
-                    shadowColor: const Color(0xFFD97706),
-                    borderRadius: BorderRadius.circular(16),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.accessibility_rounded, size: 24, color: Color(0xFFD97706)),
-                        SizedBox(width: 8),
-                        Text(
-                          'शरीर पर दिखाएं (Body Map)',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFFB45309),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TactileButton(
+                      onPressed: onShowOnBody,
+                      height: 52,
+                      backgroundColor: const Color(0xFFFFFBEB),
+                      borderColor: const Color(0xFFFDE68A),
+                      shadowColor: const Color(0xFFD97706),
+                      borderRadius: BorderRadius.circular(16),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.accessibility_rounded, size: 22, color: Color(0xFFD97706)),
+                          SizedBox(width: 8),
+                          Text(
+                            'शरीर पर दिखाएं (Body Map)',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFFB45309),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 10),
-
-            // Headline
-            const Text(
-              'आपको क्या तकलीफ है? (Select Main Problem)',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
+                ],
               ),
-              textAlign: TextAlign.center,
-            ),
 
-            const SizedBox(height: 10),
+              const SizedBox(height: 10),
 
-            // 2x2 Grid strictly clamped inside available space with zero scrolling
-            if (isBounded)
-              Expanded(child: _buildGrid(complaints))
-            else
-              SizedBox(height: 280, child: _buildGrid(complaints)),
-          ],
-        );
+              // Headline
+              const Text(
+                'आपको क्या तकलीफ है? (Select Main Problem)',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+                textAlign: TextAlign.center,
+              ),
 
-        return body;
+              const SizedBox(height: 10),
+
+              // 2x2 Grid
+              if (useFlex)
+                Expanded(child: _buildGrid(complaints))
+              else
+                SizedBox(height: 160, child: _buildGrid(complaints)),
+            ],
+          );
+        }
+
+        if (canFlex) {
+          return buildContent(useFlex: true);
+        } else {
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: buildContent(useFlex: false),
+          );
+        }
       },
     );
   }
@@ -154,10 +165,11 @@ class ProblemScreen extends StatelessWidget {
       builder: (context, gridBox) {
         final double spacing = 10.0;
         final double itemHeight = (gridBox.maxHeight - spacing) / 2;
-        final double effectiveHeight = itemHeight > 60 ? itemHeight : 70;
+        final bool canFit = itemHeight > 58;
+        final double effectiveHeight = canFit ? itemHeight : 72;
 
         return GridView.builder(
-          physics: const NeverScrollableScrollPhysics(),
+          physics: canFit ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
           shrinkWrap: true,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,

@@ -181,88 +181,101 @@ class KioskFrame extends StatelessWidget {
             ),
           ),
 
-          const Spacer(),
+          const SizedBox(width: 8),
 
-          // Settings Button (if provided)
-          if (onSettings != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: IconButton(
-                icon: const Icon(Icons.settings_rounded, size: 20, color: Color(0xFF64748B)),
-                onPressed: onSettings,
-                tooltip: 'Settings',
-              ),
-            ),
-
-          // 1. Repeat Audio Button (सुनें)
-          if (onRepeatAudio != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: TactileButton(
-                onPressed: onRepeatAudio,
-                height: 40,
-                backgroundColor: const Color(0xFFF0FDFA),
-                borderColor: const Color(0xFF5EEAD4),
-                shadowColor: const Color(0xFF0D9488),
-                borderRadius: BorderRadius.circular(12),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.volume_up_rounded, size: 20, color: Color(0xFF0D9488)),
-                    if (!isNarrow) ...[
-                      const SizedBox(width: 4),
-                      const Text('सुनें', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0F766E))),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-
-          // 2. Restart Button (फिर से शुरू / New Patient)
-          if (onRestart != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: TactileButton(
-                onPressed: onRestart,
-                height: 40,
-                backgroundColor: const Color(0xFFFFFBEB),
-                borderColor: const Color(0xFFFDE68A),
-                shadowColor: const Color(0xFFD97706),
-                borderRadius: BorderRadius.circular(12),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.restart_alt_rounded, size: 20, color: Color(0xFFD97706)),
-                    if (!isNarrow) ...[
-                      const SizedBox(width: 4),
-                      const Text('फिर से', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFB45309))),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-
-          // 3. Staff Help Button (मदद / Help SOS)
-          if (onStaffHelp != null)
-            TactileButton(
-              onPressed: onStaffHelp,
-              height: 40,
-              backgroundColor: const Color(0xFFFEF2F2),
-              borderColor: const Color(0xFFFECACA),
-              shadowColor: const Color(0xFFDC2626),
-              borderRadius: BorderRadius.circular(12),
+          // Actions on Right
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              reverse: true,
+              physics: const BouncingScrollPhysics(),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.support_agent_rounded, size: 20, color: Color(0xFFDC2626)),
-                  const SizedBox(width: 4),
-                  Text(
-                    isNarrow ? 'मदद' : 'कर्मचारी मदद',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFB91C1C)),
-                  ),
+                  // Settings Button (if provided)
+                  if (onSettings != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: IconButton(
+                        icon: const Icon(Icons.settings_rounded, size: 20, color: Color(0xFF64748B)),
+                        onPressed: onSettings,
+                        tooltip: 'Settings',
+                      ),
+                    ),
+
+                  // 1. Repeat Audio Button (सुनें)
+                  if (onRepeatAudio != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: TactileButton(
+                        onPressed: onRepeatAudio,
+                        height: 40,
+                        backgroundColor: const Color(0xFFF0FDFA),
+                        borderColor: const Color(0xFF5EEAD4),
+                        shadowColor: const Color(0xFF0D9488),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.volume_up_rounded, size: 20, color: Color(0xFF0D9488)),
+                            if (!isNarrow) ...[
+                              const SizedBox(width: 4),
+                              const Text('सुनें', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0F766E))),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // 2. Restart Button (फिर से शुरू / New Patient)
+                  if (onRestart != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: TactileButton(
+                        onPressed: onRestart,
+                        height: 40,
+                        backgroundColor: const Color(0xFFFFFBEB),
+                        borderColor: const Color(0xFFFDE68A),
+                        shadowColor: const Color(0xFFD97706),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.restart_alt_rounded, size: 20, color: Color(0xFFD97706)),
+                            if (!isNarrow) ...[
+                              const SizedBox(width: 4),
+                              const Text('फिर से', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFB45309))),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // 3. Staff Help Button (मदद / Help SOS)
+                  if (onStaffHelp != null)
+                    TactileButton(
+                      onPressed: onStaffHelp,
+                      height: 40,
+                      backgroundColor: const Color(0xFFFEF2F2),
+                      borderColor: const Color(0xFFFECACA),
+                      shadowColor: const Color(0xFFDC2626),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.support_agent_rounded, size: 20, color: Color(0xFFDC2626)),
+                          const SizedBox(width: 4),
+                          Text(
+                            isNarrow ? 'मदद' : 'कर्मचारी मदद',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFB91C1C)),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
+          ),
         ],
       ),
     );

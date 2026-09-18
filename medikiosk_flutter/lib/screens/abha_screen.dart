@@ -150,12 +150,14 @@ class _AbhaScreenState extends State<AbhaScreen> {
               child: LayoutBuilder(
                 builder: (context, kbBox) {
                   final double kHeight = (kbBox.maxHeight - 12) / 4;
+                  final bool fits = kHeight > 36;
+                  final double buttonHeight = fits ? kHeight : 42;
                   return GridView.count(
                     crossAxisCount: 3,
-                    childAspectRatio: kbBox.maxWidth / (3 * (kHeight > 36 ? kHeight : 40)),
+                    childAspectRatio: kbBox.maxWidth / (3 * buttonHeight),
                     mainAxisSpacing: 4,
                     crossAxisSpacing: 6,
-                    physics: const NeverScrollableScrollPhysics(),
+                    physics: fits ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
                     children: [
                       for (int i = 1; i <= 9; i++)
                         TactileButton(

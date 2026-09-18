@@ -60,85 +60,103 @@ class DurationSunWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Text(
-          'यह परेशानी कब से है? (How long have you had this?)',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.textPrimary,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 18),
-        Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          alignment: WrapAlignment.center,
-          children: durationOptions.map((opt) {
-            final isSelected = selectedDuration == opt.value;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isBounded = constraints.hasBoundedHeight;
+        final bool canFit = !isBounded || constraints.maxHeight >= 340;
 
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => onSelected(opt),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 150,
-                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppTheme.warningLight
-                      : AppTheme.surface,
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: isSelected ? AppTheme.warningOrange : AppTheme.surfaceBorder,
-                    width: isSelected ? 3.0 : 1.5,
-                  ),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: AppTheme.warningOrange.withAlpha(60),
-                            blurRadius: 14,
-                            spreadRadius: 1,
-                          ),
-                        ]
-                      : AppTheme.cardShadow,
+        Widget buildBody() {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'यह परेशानी कब से है? (How long have you had this?)',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      opt.iconEmoji,
-                      style: const TextStyle(fontSize: 48),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      opt.labelHi,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      opt.labelEn,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
+                textAlign: TextAlign.center,
               ),
-            );
-          }).toList(),
-        ),
-      ],
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 14,
+                runSpacing: 14,
+                alignment: WrapAlignment.center,
+                children: durationOptions.map((opt) {
+                  final isSelected = selectedDuration == opt.value;
+
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onSelected(opt),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 145,
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.warningLight
+                            : AppTheme.surface,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color: isSelected ? AppTheme.warningOrange : AppTheme.surfaceBorder,
+                          width: isSelected ? 3.0 : 1.5,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: AppTheme.warningOrange.withAlpha(80),
+                                  blurRadius: 12,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : AppTheme.cardShadow,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            opt.iconEmoji,
+                            style: const TextStyle(fontSize: 40),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            opt.labelHi,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimary,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            opt.labelEn,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.textSecondary,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          );
+        }
+
+        if (canFit) {
+          return buildBody();
+        } else {
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: buildBody(),
+          );
+        }
+      },
     );
   }
 }
