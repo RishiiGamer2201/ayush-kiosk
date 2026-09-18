@@ -1,14 +1,17 @@
 import asyncio
 
-LOCAL_HOST = "127.0.0.1"
+LOCAL_HOST = "0.0.0.0"
 LOCAL_PORT = 8000
 REMOTE_HOST = "100.104.251.40"
 REMOTE_PORT = 8000
 
 async def handle_client(local_reader, local_writer):
+    peer = local_writer.get_extra_info('peername')
+    print(f"[Proxy] Connection from {peer}", flush=True)
     try:
         remote_reader, remote_writer = await asyncio.open_connection(REMOTE_HOST, REMOTE_PORT)
-    except Exception:
+    except Exception as e:
+        print(f"[Proxy] Failed to connect to {REMOTE_HOST}:{REMOTE_PORT} - {e}", flush=True)
         local_writer.close()
         return
 

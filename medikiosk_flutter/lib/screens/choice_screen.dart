@@ -37,17 +37,33 @@ class _ChoiceScreenState extends State<ChoiceScreen> {
     super.dispose();
   }
 
+  List<Map<String, dynamic>> get _displayOptions {
+    return widget.options.where((opt) {
+      final label = '${opt['label'] ?? ''}'.toLowerCase();
+      final val = '${opt['value'] ?? ''}'.toLowerCase();
+      if (val == 'refuse' || val == 'undisclosed' || val == 'prefer_not_to_say' || val == 'prefer_not_to_answer') {
+        return false;
+      }
+      if (label.contains('prefer not to') || label.contains('refuse') || label.contains('undisclosed') ||
+          label.contains('बताना नहीं चाहते') || label.contains('जवाब नहीं देना') || label.contains('बताना नहीं')) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
   void _submitTyped() {
     final entry = _typed.text.trim().toLowerCase();
     if (entry.isEmpty) return;
 
+    final opts = _displayOptions;
     final index = int.tryParse(entry);
-    if (index != null && index >= 1 && index <= widget.options.length) {
-      _choose(widget.options[index - 1]);
+    if (index != null && index >= 1 && index <= opts.length) {
+      _choose(opts[index - 1]);
       return;
     }
 
-    for (final option in widget.options) {
+    for (final option in opts) {
       final label = (option['label'] as String? ?? '').toLowerCase();
       final value = (option['value'] as String? ?? '').toLowerCase();
       if (label == entry || value == entry || label.startsWith(entry)) {
@@ -65,7 +81,8 @@ class _ChoiceScreenState extends State<ChoiceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final count = widget.options.length;
+    final opts = _displayOptions;
+    final count = opts.length;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -114,27 +131,29 @@ class _ChoiceScreenState extends State<ChoiceScreen> {
 
             const SizedBox(height: 10),
 
-            // Clamped Options Grid (Strictly zero scrolling)
+            // Clamped Options Grid (scrollable if height is constrained)
             Expanded(
               child: LayoutBuilder(
                 builder: (context, box) {
                   final crossCount = (box.maxWidth > 550 && count > 2) ? 2 : 1;
                   final rows = (count / crossCount).ceil();
                   final double spacing = 10.0;
-                  final double itemHeight = (box.maxHeight - (rows - 1) * spacing) / rows;
+                  final double itemHeight = (box.maxHeight - (rows - 1) * spacing) / (rows > 0 ? rows : 1);
+                  final bool canFit = itemHeight > 55;
+                  final double effectiveHeight = canFit ? itemHeight : 65;
 
                   return GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
+                    physics: canFit ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
                     shrinkWrap: true,
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: crossCount,
                       mainAxisSpacing: spacing,
                       crossAxisSpacing: spacing,
-                      mainAxisExtent: itemHeight > 55 ? itemHeight : 65,
+                      mainAxisExtent: effectiveHeight,
                     ),
                     itemCount: count,
                     itemBuilder: (context, idx) {
-                      final opt = widget.options[idx];
+                      final opt = opts[idx];
                       final val = '${opt['value']}';
                       final isSelected = widget.selectedValue == val;
 

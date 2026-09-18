@@ -198,22 +198,57 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
   @override
   Widget build(BuildContext context) {
     final actions = List<String>.from(_client.screen['allowed_actions'] as List? ?? []);
+    final options = _client.options;
+    final stage = _client.currentStage;
+    final isConnected = _client.status == ConnectionStatus.connected;
+
     final canBack = actions.contains('back');
-    final canSkip = actions.contains('skip') || actions.contains('unknown');
-    final canRepeat = actions.contains('repeat');
+    final canRepeat = isConnected && (actions.contains('repeat') || stage == KioskStage.interview || stage == KioskStage.language);
+    final canRestart = isConnected;
+    final canHelp = isConnected;
+
+    // Footer buttons (Pata nahi, Skip, No, Yes)
+    final onDontKnow = (actions.contains('unknown') || stage == KioskStage.interview)
+        ? () => _client.action('unknown')
+        : null;
+
+    final onSkip = (actions.contains('skip') || stage == KioskStage.abha || stage == KioskStage.documents || stage == KioskStage.interview)
+        ? () => _client.action('skip')
+        : null;
+
+    VoidCallback? onYes;
+    final hasYesOption = options.any((o) => '${o['value']}'.toLowerCase() == 'yes');
+    if (hasYesOption) {
+      final yesOpt = options.firstWhere((o) => '${o['value']}'.toLowerCase() == 'yes');
+      onYes = () => _client.action('choose', yesOpt['value']);
+    } else if (actions.contains('confirm')) {
+      onYes = () => _client.action('confirm');
+    } else if (stage == KioskStage.interview || stage == KioskStage.consent) {
+      onYes = () => _client.action('answer', 'yes');
+    }
+
+    VoidCallback? onNo;
+    final hasNoOption = options.any((o) => '${o['value']}'.toLowerCase() == 'no');
+    if (hasNoOption) {
+      final noOpt = options.firstWhere((o) => '${o['value']}'.toLowerCase() == 'no');
+      onNo = () => _client.action('choose', noOpt['value']);
+    } else if (stage == KioskStage.interview || stage == KioskStage.consent) {
+      onNo = () => _client.action('answer', 'no');
+    }
 
     return KioskFrame(
       title: 'MediKiosk',
-      isConnected: _client.status == ConnectionStatus.connected,
+      isConnected: isConnected,
       isListening: _audio.isListening && _client.voiceAvailable,
       onBack: canBack ? () => _client.action('back') : null,
       onRepeatAudio: canRepeat ? () => _client.action('repeat') : null,
-      onStaffHelp: () => _client.action('help'),
-      onSkip: canSkip ? () => _client.action(actions.contains('skip') ? 'skip' : 'unknown') : null,
+      onRestart: canRestart ? () => _client.action('restart') : _client.reconnect,
+      onStaffHelp: canHelp ? () => _client.action('help') : null,
+      onDontKnow: onDontKnow,
+      onSkip: onSkip,
+      onYes: onYes,
+      onNo: onNo,
       onSettings: _configure,
-      onRestart: _client.status == ConnectionStatus.connected
-          ? () => _client.action('restart')
-          : _client.reconnect,
       body: Stack(
         children: [
           if (_scanning) const Positioned(top: 0, left: 0, right: 0, child: LinearProgressIndicator()),
@@ -236,6 +271,7 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
             onScanCard: _scan,
             isScanning: _scanning,
             scanError: _scanError,
+            hideSystemActions: true,
           ),
         ],
       ),
@@ -265,6 +301,8 @@ class WorkflowBody extends StatefulWidget {
   final bool isScanning;
   final String? scanError;
 
+  final bool hideSystemActions;
+
   const WorkflowBody({
     super.key,
     required this.client,
@@ -273,10 +311,23 @@ class WorkflowBody extends StatefulWidget {
     this.onScanCard,
     this.isScanning = false,
     this.scanError,
+    this.hideSystemActions = false,
   });
 
   @override
   State<WorkflowBody> createState() => _WorkflowBodyState();
+}
+
+class _OptionMeta {
+  final String emoji;
+  final String sub;
+  final Color color;
+
+  const _OptionMeta({
+    required this.emoji,
+    required this.sub,
+    required this.color,
+  });
 }
 
 class _WorkflowBodyState extends State<WorkflowBody> {
@@ -293,6 +344,389 @@ class _WorkflowBodyState extends State<WorkflowBody> {
 
   KioskClient get client => widget.client;
   bool get _blocked => client.isProcessing || client.status != ConnectionStatus.connected;
+
+  List<String> _filteredActions(List<String> actions) {
+    if (!widget.hideSystemActions) {
+      return actions.where((a) => !{'answer', 'choose', 'edit', 'preview', 'document', 'refuse'}.contains(a)).toList();
+    }
+    return actions.where((a) => !{
+      'answer', 'choose', 'edit', 'preview', 'document',
+      'repeat', 'restart', 'help',
+      'unknown', 'skip', 'yes', 'no',
+      'more_time', 'wait', 'slower', 'withdraw',
+      'refuse',
+    }.contains(a)).toList();
+  }
+
+  _OptionMeta _resolveOptionMeta(String label, String value, int index, [String? headline]) {
+    final text = '$label $value'.toLowerCase();
+    final hText = (headline ?? '').toLowerCase();
+
+    // 1. Yes / Confirm
+    if (text.contains('yes') || text.contains('हाँ') || text.contains('हो') || text.contains('true') ||
+        text.contains('सहन कर सकते') || text.contains('can tolerate')) {
+      return const _OptionMeta(emoji: '✓', sub: 'Yes / हाँ', color: Color(0xFF16A34A));
+    }
+
+    // 2. No / Negative
+    if (text.contains('no') || text.contains('नहीं') || text.contains('ना') || text.contains('false') ||
+        text.contains('cannot') || text.contains('सहन नहीं')) {
+      return const _OptionMeta(emoji: '✕', sub: 'No / नहीं', color: Color(0xFFDC2626));
+    }
+
+    // 3. Pain sensations
+    if (text.contains('sharp') || text.contains('चुभन') || text.contains('stabbing') || text.contains('सुई')) {
+      return const _OptionMeta(emoji: '💥', sub: 'Sharp', color: Color(0xFFEF4444));
+    }
+    if (text.contains('burn') || text.contains('जलन') || text.contains('flame') || text.contains('आग')) {
+      return const _OptionMeta(emoji: '🔥', sub: 'Burning', color: Color(0xFFF97316));
+    }
+    if (text.contains('dull') || text.contains('भारीपन') || text.contains('heavy') || text.contains('ache') || text.contains('बोझ')) {
+      return const _OptionMeta(emoji: '😣', sub: 'Heavy / Dull', color: Color(0xFFEAB308));
+    }
+    if (text.contains('throb') || text.contains('झटका') || text.contains('jolt') || text.contains('electric') || text.contains('धड़कन')) {
+      return const _OptionMeta(emoji: '⚡', sub: 'Jolt / Throbbing', color: Color(0xFF8B5CF6));
+    }
+    if (text.contains('cramp') || text.contains('ऐंठन') || text.contains('मरोड़')) {
+      return const _OptionMeta(emoji: '🌀', sub: 'Cramp', color: Color(0xFFD97706));
+    }
+    if (text.contains('stiff') || text.contains('अकड़न') || text.contains('जकड़न')) {
+      return const _OptionMeta(emoji: '🧱', sub: 'Stiffness', color: Color(0xFF64748B));
+    }
+    if (text.contains('tingl') || text.contains('झुनझुनी') || text.contains('सुन्न') || text.contains('numb')) {
+      return const _OptionMeta(emoji: '✨', sub: 'Numb / Tingling', color: Color(0xFF6366F1));
+    }
+
+    // 4. Severity
+    if (text.contains('mild') || text.contains('थोड़ा') || text.contains('कम') || text.contains('slight') || text.contains('हल्का')) {
+      return const _OptionMeta(emoji: '🙂', sub: 'Mild', color: Color(0xFF22C55E));
+    }
+    if (text.contains('moderate') || text.contains('मध्यम') || text.contains('medium')) {
+      return const _OptionMeta(emoji: '😐', sub: 'Moderate', color: Color(0xFFEAB308));
+    }
+    if (text.contains('severe') || text.contains('ज्यादा') || text.contains('तेज') || text.contains('काफी')) {
+      return const _OptionMeta(emoji: '😣', sub: 'Severe', color: Color(0xFFF97316));
+    }
+    if (text.contains('worst') || text.contains('बहुत ज्यादा') || text.contains('unbearable') || text.contains('असहनीय')) {
+      return const _OptionMeta(emoji: '😭', sub: 'Very Severe', color: Color(0xFFEF4444));
+    }
+
+    // 5. Clinical Symptoms
+    if (text.contains('fever') || text.contains('बुखार') || text.contains('temp') || text.contains('ताप')) {
+      return const _OptionMeta(emoji: '🌡️', sub: 'Fever', color: Color(0xFFEA580C));
+    }
+    if (text.contains('chill') || text.contains('कंपकंपी') || text.contains('ठंड लगना') || text.contains('shiver')) {
+      return const _OptionMeta(emoji: '🥶', sub: 'Chills', color: Color(0xFF0284C7));
+    }
+    if (text.contains('cough') || text.contains('खांसी') || text.contains('khansi')) {
+      return const _OptionMeta(emoji: '😷', sub: 'Cough', color: Color(0xFF0284C7));
+    }
+    if (text.contains('cold') || text.contains('जुकाम') || text.contains('sneeze') || text.contains('छींक')) {
+      return const _OptionMeta(emoji: '🤧', sub: 'Cold', color: Color(0xFF0284C7));
+    }
+    if (text.contains('phlegm') || text.contains('बलगम') || text.contains('mucus') || text.contains('कफ')) {
+      return const _OptionMeta(emoji: '💧', sub: 'Phlegm', color: Color(0xFF0D9488));
+    }
+    if (text.contains('vomit') || text.contains('उल्टी') || text.contains('nausea') || text.contains('मिचलाना')) {
+      return const _OptionMeta(emoji: '🤮', sub: 'Vomiting', color: Color(0xFF16A34A));
+    }
+    if (text.contains('diarrhea') || text.contains('दस्त') || text.contains('loose') || text.contains('पेचिश')) {
+      return const _OptionMeta(emoji: '💧', sub: 'Diarrhea', color: Color(0xFF0284C7));
+    }
+    if (text.contains('constipat') || text.contains('कब्ज') || text.contains('hard stool') || text.contains('सूखा मल')) {
+      return const _OptionMeta(emoji: '🪨', sub: 'Constipation', color: Color(0xFF78716C));
+    }
+    if (text.contains('bleed') || text.contains('खून') || text.contains('blood') || text.contains('रक्त')) {
+      return const _OptionMeta(emoji: '🩸', sub: 'Bleeding', color: Color(0xFFDC2626));
+    }
+    if (text.contains('swell') || text.contains('सूजन') || text.contains('edema') || text.contains('शोथ')) {
+      return const _OptionMeta(emoji: '🩹', sub: 'Swelling', color: Color(0xFFD97706));
+    }
+    if (text.contains('weak') || text.contains('कमजोरी') || text.contains('fatigue') || text.contains('थकान')) {
+      return const _OptionMeta(emoji: '🥱', sub: 'Fatigue', color: Color(0xFFD97706));
+    }
+    if (text.contains('dizzy') || text.contains('चक्कर') || text.contains('giddiness') || text.contains('faint')) {
+      return const _OptionMeta(emoji: '💫', sub: 'Dizziness', color: Color(0xFF8B5CF6));
+    }
+    if (text.contains('sweat') || text.contains('पसीना') || text.contains('perspir') || text.contains('sweda')) {
+      return const _OptionMeta(emoji: '💦', sub: 'Sweat', color: Color(0xFF0284C7));
+    }
+
+    // 6. Body Anatomy & Traits
+    if (text.contains('head') || text.contains('सिर') || text.contains('migraine') || text.contains('माथा')) {
+      return const _OptionMeta(emoji: '🤕', sub: 'Head', color: Color(0xFF7C3AED));
+    }
+    if (text.contains('eye') || text.contains('आँख') || text.contains('दृष्टि') || text.contains('blink')) {
+      return const _OptionMeta(emoji: '👁️', sub: 'Eye', color: Color(0xFF0891B2));
+    }
+    if (text.contains('ear') || text.contains('कान')) {
+      return const _OptionMeta(emoji: '👂', sub: 'Ear', color: Color(0xFF4F46E5));
+    }
+    if (text.contains('throat') || text.contains('गला')) {
+      return const _OptionMeta(emoji: '🗣️', sub: 'Throat', color: Color(0xFF9333EA));
+    }
+    if (text.contains('tooth') || text.contains('दांत') || text.contains('dental')) {
+      return const _OptionMeta(emoji: '🦷', sub: 'Teeth', color: Color(0xFF0D9488));
+    }
+    if (text.contains('mouth') || text.contains('मुंह') || text.contains('tongue') || text.contains('जीभ')) {
+      return const _OptionMeta(emoji: '👅', sub: 'Mouth / Tongue', color: Color(0xFFDB2777));
+    }
+    if (text.contains('chest') || text.contains('छाती') || text.contains('heart') || text.contains('दिल') || text.contains('सीना')) {
+      return const _OptionMeta(emoji: '🫀', sub: 'Chest / Heart', color: Color(0xFFE11D48));
+    }
+    if (text.contains('breath') || text.contains('सांस') || text.contains('lung') || text.contains('फेफड़े')) {
+      return const _OptionMeta(emoji: '🫁', sub: 'Breathing', color: Color(0xFF0284C7));
+    }
+    if (text.contains('stomach') || text.contains('पेट') || text.contains('abdomen') || text.contains('digest') || text.contains('हाजमा')) {
+      return const _OptionMeta(emoji: '🤢', sub: 'Stomach', color: Color(0xFF16A34A));
+    }
+    if (text.contains('back') || text.contains('पीठ') || text.contains('कमर') || text.contains('spine')) {
+      return const _OptionMeta(emoji: '🧍', sub: 'Back / Spine', color: Color(0xFFD97706));
+    }
+    if (text.contains('shoulder') || text.contains('कंधा') || text.contains('arm') || text.contains('हाथ') || text.contains('बाँह')) {
+      return const _OptionMeta(emoji: '💪', sub: 'Arms / Shoulders', color: Color(0xFF2563EB));
+    }
+    if (text.contains('leg') || text.contains('पैर') || text.contains('knee') || text.contains('घुटना') || text.contains('ankle')) {
+      return const _OptionMeta(emoji: '🦵', sub: 'Legs / Knee', color: Color(0xFF0D9488));
+    }
+    if (text.contains('joint') || text.contains('जोड़') || text.contains('bone') || text.contains('हड्डी') || text.contains('sound') || text.contains('आवाज़')) {
+      return const _OptionMeta(emoji: '🦴', sub: 'Joints / Bone', color: Color(0xFFD97706));
+    }
+    if (text.contains('skin') || text.contains('त्वचा') || text.contains('rash') || text.contains('खुजली') || text.contains('तिल') || text.contains('mole')) {
+      return const _OptionMeta(emoji: '🫧', sub: 'Skin', color: Color(0xFFCA8A04));
+    }
+    if (text.contains('hair') || text.contains('बाल') || text.contains('kesha') || text.contains('curly') || text.contains('grey') || text.contains('bald') || text.contains('गंजा')) {
+      return const _OptionMeta(emoji: '💇', sub: 'Hair', color: Color(0xFF78716C));
+    }
+    if (text.contains('wrinkle') || text.contains('झुर्रियाँ') || text.contains('vali')) {
+      return const _OptionMeta(emoji: '🧓', sub: 'Wrinkles', color: Color(0xFFD97706));
+    }
+
+    // 7. Demographics & Relations
+    if (text.contains('married') || text.contains('विवाहित') || text.contains('rings')) {
+      return const _OptionMeta(emoji: '💍', sub: 'Married', color: Color(0xFFDB2777));
+    }
+    if (text.contains('unmarried') || text.contains('अविवाहित') || text.contains('single')) {
+      return const _OptionMeta(emoji: '👤', sub: 'Unmarried', color: Color(0xFF0284C7));
+    }
+    if (text.contains('divorce') || text.contains('तलाक')) {
+      return const _OptionMeta(emoji: '💔', sub: 'Divorcee', color: Color(0xFF64748B));
+    }
+    if (text.contains('widow') || text.contains('विधवा') || text.contains('विधुर')) {
+      return const _OptionMeta(emoji: '🕯️', sub: 'Widow', color: Color(0xFF475569));
+    }
+    if (text.contains('nuclear') || text.contains('एकल')) {
+      return const _OptionMeta(emoji: '👨‍👩‍👧', sub: 'Nuclear', color: Color(0xFF0D9488));
+    }
+    if (text.contains('joint') || text.contains('संयुक्त') || text.contains('group')) {
+      return const _OptionMeta(emoji: '👨‍👩‍👧‍👦', sub: 'Joint', color: Color(0xFF2563EB));
+    }
+
+    // 8. Occupation
+    if (text.contains('desk') || text.contains('office') || text.contains('दफ्तर') || text.contains('कंप्यूटर')) {
+      return const _OptionMeta(emoji: '💻', sub: 'Desk Work', color: Color(0xFF2563EB));
+    }
+    if (text.contains('field') || text.contains('खेत') || text.contains('किसान') || text.contains('क्षेत्र')) {
+      return const _OptionMeta(emoji: '🚜', sub: 'Field Work', color: Color(0xFF16A34A));
+    }
+    if (text.contains('homemaker') || text.contains('गृहिणी') || text.contains('घर')) {
+      return const _OptionMeta(emoji: '🏡', sub: 'Homemaker', color: Color(0xFFDB2777));
+    }
+    if (text.contains('student') || text.contains('छात्र') || text.contains('विद्यार्थी')) {
+      return const _OptionMeta(emoji: '🎓', sub: 'Student', color: Color(0xFF7C3AED));
+    }
+    if (text.contains('business') || text.contains('व्यापार') || text.contains('दुकान')) {
+      return const _OptionMeta(emoji: '💼', sub: 'Business', color: Color(0xFFD97706));
+    }
+
+    // 9. Religion
+    if (text.contains('hindu') || text.contains('हिन्दू')) {
+      return const _OptionMeta(emoji: '🕉️', sub: 'Hindu', color: Color(0xFFEA580C));
+    }
+    if (text.contains('muslim') || text.contains('मुस्लिम')) {
+      return const _OptionMeta(emoji: '☪️', sub: 'Muslim', color: Color(0xFF16A34A));
+    }
+    if (text.contains('christian') || text.contains('ईसाई')) {
+      return const _OptionMeta(emoji: '✝️', sub: 'Christian', color: Color(0xFF2563EB));
+    }
+    if (text.contains('sikh') || text.contains('सिख')) {
+      return const _OptionMeta(emoji: '☬', sub: 'Sikh', color: Color(0xFFD97706));
+    }
+
+    // 10. Income
+    if (text.contains('lakh') || text.contains('लाख') || text.contains('income') || text.contains('आय') || text.contains('coin')) {
+      return const _OptionMeta(emoji: '💰', sub: 'Income', color: Color(0xFF059669));
+    }
+
+    // 11. Diet & Food
+    if (text.contains('vegetarian') || text.contains('शाकाहारी') || text.contains('निरामिष') || text.contains('leaf')) {
+      return const _OptionMeta(emoji: '🥗', sub: 'Vegetarian', color: Color(0xFF16A34A));
+    }
+    if (text.contains('mixed') || text.contains('मिश्रित') || text.contains('non') || text.contains('meat') || text.contains('chicken') || text.contains('fish')) {
+      return const _OptionMeta(emoji: '🍲', sub: 'Mixed / Non-veg', color: Color(0xFFEA580C));
+    }
+    if (text.contains('snack') || text.contains('जलपान') || text.contains('नाश्ता')) {
+      return const _OptionMeta(emoji: '🥪', sub: 'Snacks', color: Color(0xFFD97706));
+    }
+    if (text.contains('meal') || text.contains('भोजन') || text.contains('खाना') || text.contains('plate') || text.contains('diet')) {
+      return const _OptionMeta(emoji: '🍽️', sub: 'Meal', color: Color(0xFF10B981));
+    }
+    if (text.contains('water') || text.contains('पानी') || text.contains('प्यास') || text.contains('fluid') || text.contains('लीटर') || text.contains('litre')) {
+      return const _OptionMeta(emoji: '🚰', sub: 'Water', color: Color(0xFF0284C7));
+    }
+
+    // 12. Habits & Speed
+    if (text.contains('fast') || text.contains('first') || text.contains('जल्दी') || text.contains('पहले')) {
+      return const _OptionMeta(emoji: '⚡', sub: 'Fast', color: Color(0xFFEAB308));
+    }
+    if (text.contains('slow') || text.contains('last') || text.contains('धीरे') || text.contains('अन्त') || text.contains('बाद')) {
+      return const _OptionMeta(emoji: '🐢', sub: 'Slow', color: Color(0xFF0D9488));
+    }
+    if (text.contains('at_par') || text.contains('साथ-साथ') || text.contains('same time') || text.contains('बराबर')) {
+      return const _OptionMeta(emoji: '⏱️', sub: 'Moderate', color: Color(0xFF2563EB));
+    }
+    if (text.contains('smoke') || text.contains('बीड़ी') || text.contains('सिगरेट') || text.contains('tobacco')) {
+      return const _OptionMeta(emoji: '🚭', sub: 'Tobacco', color: Color(0xFF78716C));
+    }
+    if (text.contains('alcohol') || text.contains('शराब') || text.contains('मद्यपान')) {
+      return const _OptionMeta(emoji: '🍷', sub: 'Alcohol', color: Color(0xFFDC2626));
+    }
+
+    // 13. Sleep & Weather
+    if (text.contains('sleep') || text.contains('नींद') || text.contains('bedtime')) {
+      return const _OptionMeta(emoji: '😴', sub: 'Sleep', color: Color(0xFF6366F1));
+    }
+    if (text.contains('cold') || text.contains('ठंड') || text.contains('शीत') || text.contains('winter')) {
+      return const _OptionMeta(emoji: '❄️', sub: 'Cold Weather', color: Color(0xFF0284C7));
+    }
+    if (text.contains('hot') || text.contains('गर्मी') || text.contains('धूप') || text.contains('summer')) {
+      return const _OptionMeta(emoji: '☀️', sub: 'Hot Weather', color: Color(0xFFEA580C));
+    }
+    if (text.contains('damp') || text.contains('rain') || text.contains('बरसात') || text.contains('आर्द्र')) {
+      return const _OptionMeta(emoji: '🌧️', sub: 'Rain / Damp', color: Color(0xFF0284C7));
+    }
+
+    // 14. Mental & Emotions
+    if (text.contains('angry') || text.contains('गुस्सा') || text.contains('क्रोध')) {
+      return const _OptionMeta(emoji: '😡', sub: 'Angry', color: Color(0xFFDC2626));
+    }
+    if (text.contains('anxious') || text.contains('चिंता') || text.contains('घबराहट')) {
+      return const _OptionMeta(emoji: '😰', sub: 'Anxious', color: Color(0xFF8B5CF6));
+    }
+    if (text.contains('calm') || text.contains('शांत') || text.contains('quiet')) {
+      return const _OptionMeta(emoji: '🧘', sub: 'Calm', color: Color(0xFF10B981));
+    }
+    if (text.contains('memory') || text.contains('याद') || text.contains('स्मृति')) {
+      return const _OptionMeta(emoji: '🧠', sub: 'Memory', color: Color(0xFF7C3AED));
+    }
+
+    // 15. Time & General
+    if (text.contains('morning') || text.contains('सुबह')) {
+      return const _OptionMeta(emoji: '🌅', sub: 'Morning', color: Color(0xFFF59E0B));
+    }
+    if (text.contains('afternoon') || text.contains('दोपहर')) {
+      return const _OptionMeta(emoji: '☀️', sub: 'Afternoon', color: Color(0xFFEA580C));
+    }
+    if (text.contains('night') || text.contains('रात')) {
+      return const _OptionMeta(emoji: '🌙', sub: 'Night', color: Color(0xFF6366F1));
+    }
+    if (text.contains('male') || text.contains('पुरुष')) {
+      return const _OptionMeta(emoji: '👨', sub: 'Male', color: Color(0xFF2563EB));
+    }
+    if (text.contains('female') || text.contains('महिला')) {
+      return const _OptionMeta(emoji: '👩', sub: 'Female', color: Color(0xFFDB2777));
+    }
+    if (text.contains('self') || text.contains('walk_in') || text.contains('खुद')) {
+      return const _OptionMeta(emoji: '👤', sub: 'Self', color: Color(0xFF0D9488));
+    }
+    if (text.contains('proxy') || text.contains('family') || text.contains('रिश्तेदार')) {
+      return const _OptionMeta(emoji: '👥', sub: 'Family', color: Color(0xFF0D9488));
+    }
+    if (text.contains('other') || text.contains('अन्य') || text.contains('dots')) {
+      return const _OptionMeta(emoji: '✨', sub: 'Other', color: Color(0xFF64748B));
+    }
+
+    // 16. Contextual Headline fallback (when option text is simple like a number or phrase)
+    if (hText.contains('खाना') || hText.contains('भोजन') || hText.contains('diet') || hText.contains('meal')) {
+      return const _OptionMeta(emoji: '🍽️', sub: '', color: Color(0xFF10B981));
+    }
+    if (hText.contains('पानी') || hText.contains('water') || hText.contains('thirst') || hText.contains('fluid')) {
+      return const _OptionMeta(emoji: '🚰', sub: '', color: Color(0xFF0284C7));
+    }
+    if (hText.contains('नींद') || hText.contains('sleep')) {
+      return const _OptionMeta(emoji: '😴', sub: '', color: Color(0xFF6366F1));
+    }
+    if (hText.contains('दर्द') || hText.contains('pain')) {
+      return const _OptionMeta(emoji: '🩹', sub: '', color: Color(0xFFEA580C));
+    }
+    if (hText.contains('दवा') || hText.contains('medicine')) {
+      return const _OptionMeta(emoji: '💊', sub: '', color: Color(0xFF0D9488));
+    }
+    if (hText.contains('मौसम') || hText.contains('weather')) {
+      return const _OptionMeta(emoji: '⛅', sub: '', color: Color(0xFF0284C7));
+    }
+
+    // 17. Clean index-based distinct option badge (NEVER STETHOSCOPE)
+    const fallbackBadges = [
+      _OptionMeta(emoji: '🎯', sub: '', color: Color(0xFF0D9488)),
+      _OptionMeta(emoji: '🔹', sub: '', color: Color(0xFF0284C7)),
+      _OptionMeta(emoji: '🔸', sub: '', color: Color(0xFFD97706)),
+      _OptionMeta(emoji: '💠', sub: '', color: Color(0xFF7C3AED)),
+      _OptionMeta(emoji: '⭐', sub: '', color: Color(0xFFEAB308)),
+      _OptionMeta(emoji: '✨', sub: '', color: Color(0xFF059669)),
+      _OptionMeta(emoji: '🏷️', sub: '', color: Color(0xFFDB2777)),
+      _OptionMeta(emoji: '📌', sub: '', color: Color(0xFFEA580C)),
+    ];
+    return fallbackBadges[index % fallbackBadges.length];
+  }
+
+  Widget _buildOptionCard(int index, Map<String, dynamic> opt) {
+    final rawLabel = '${opt['label'] ?? opt['value'] ?? ''}';
+    final rawValue = opt['value'];
+    final meta = _resolveOptionMeta(rawLabel, '$rawValue', index, client.headline);
+    final buttonLabel = '${index + 1}. $rawLabel';
+
+    return TactileButton(
+      onPressed: _blocked ? null : () => client.action('choose', rawValue),
+      height: 105,
+      borderColor: meta.color.withAlpha(120),
+      shadowColor: meta.color.withAlpha(180),
+      borderRadius: BorderRadius.circular(18),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(meta.emoji, style: const TextStyle(fontSize: 32)),
+          const SizedBox(height: 5),
+          Text(
+            buttonLabel,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF0F172A),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+          if (meta.sub.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              meta.sub,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF64748B),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
   Widget button(String label, String action, [dynamic value]) => Padding(
     padding: const EdgeInsets.all(4),
@@ -376,10 +810,11 @@ class _WorkflowBodyState extends State<WorkflowBody> {
               ),
             ),
             const SizedBox(height: 10),
-            Wrap(alignment: WrapAlignment.center, children: [
-              for (final action in actions.where((a) => !{'answer', 'choose', 'edit', 'preview', 'document'}.contains(a)))
-                button(_label(action), action),
-            ]),
+            if (_filteredActions(actions).isNotEmpty)
+              Wrap(alignment: WrapAlignment.center, children: [
+                for (final action in _filteredActions(actions))
+                  button(_label(action), action),
+              ]),
           ],
         );
       },
@@ -413,10 +848,11 @@ class _WorkflowBodyState extends State<WorkflowBody> {
         onPressed: _blocked || client.narrative.trim().isEmpty ? null : client.submitNarrative,
         icon: const Icon(Icons.arrow_forward_rounded),
         label: Text(tr('proceed', client.language), style: const TextStyle(fontSize: 18)))),
-      Wrap(children: [
-        for (final action in actions.where((a) => !{'answer', 'choose', 'edit', 'preview', 'document'}.contains(a)))
-          button(_label(action), action),
-      ]),
+      if (_filteredActions(actions).isNotEmpty)
+        Wrap(children: [
+          for (final action in _filteredActions(actions))
+            button(_label(action), action),
+        ]),
     ]);
   }
 
@@ -554,7 +990,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
                       ),
                       if (_slipStatus != null) Text(_slipStatus!),
                       Wrap(children: [
-                        for (final action in actions.where((a) => !{'answer', 'choose', 'edit', 'preview', 'document'}.contains(a)))
+                        for (final action in actions.where((a) => !{'answer', 'choose', 'edit', 'preview', 'document', 'refuse'}.contains(a)))
                           button(_label(action), action),
                       ]),
                     ],
@@ -674,6 +1110,19 @@ class _WorkflowBodyState extends State<WorkflowBody> {
 
 // Choice stages rendered via TactileButton options grid
 
+    final displayOptions = client.options.where((opt) {
+      final label = '${opt['label'] ?? ''}'.toLowerCase();
+      final val = '${opt['value'] ?? ''}'.toLowerCase();
+      if (val == 'refuse' || val == 'undisclosed' || val == 'prefer_not_to_say' || val == 'prefer_not_to_answer') {
+        return false;
+      }
+      if (label.contains('prefer not to') || label.contains('refuse') || label.contains('undisclosed') ||
+          label.contains('बताना नहीं चाहते') || label.contains('जवाब नहीं देना') || label.contains('बताना नहीं')) {
+        return false;
+      }
+      return true;
+    }).toList();
+
     // 13. General Question View (Strictly preserves all test selectors)
     return SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Semantics(header: true, child: Text(client.headline, style: Theme.of(context).textTheme.headlineSmall)),
@@ -681,10 +1130,30 @@ class _WorkflowBodyState extends State<WorkflowBody> {
         Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text('${progress[0]} / ${progress[1]}')),
       const SizedBox(height: 12),
 
-      for (final entry in client.options.indexed)
-        button('${entry.$1 + 1}. ${entry.$2['label']}', 'choose', entry.$2['value']),
+      if (displayOptions.isNotEmpty) ...[
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 550;
+            final count = displayOptions.length;
+            final crossCount = isWide ? (count <= 4 ? count : 4) : (count == 1 ? 1 : 2);
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossCount,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                mainAxisExtent: 105,
+              ),
+              itemCount: count,
+              itemBuilder: (context, i) => _buildOptionCard(i, displayOptions[i]),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+      ],
 
-      if (client.options.isEmpty && ['text', 'number', 'camera_or_text', 'voice'].contains(input)) ...[
+      if (displayOptions.isEmpty && ['text', 'number', 'camera_or_text', 'voice'].contains(input)) ...[
         TextField(
           controller: _answer,
           maxLength: 500,
@@ -711,10 +1180,11 @@ class _WorkflowBodyState extends State<WorkflowBody> {
 
       if (stage == KioskStage.unavailable) Text(tr('unsupported', client.language)),
 
-      Wrap(children: [
-        for (final action in actions.where((a) => !{'answer', 'choose', 'edit', 'preview', 'document'}.contains(a)))
-          button(_label(action), action),
-      ]),
+      if (_filteredActions(actions).isNotEmpty)
+        Wrap(children: [
+          for (final action in _filteredActions(actions))
+            button(_label(action), action),
+        ]),
     ]));
   }
 

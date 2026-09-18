@@ -217,44 +217,18 @@ class ReportScreen extends StatelessWidget {
     String room,
     Map<String, dynamic>? prakriti,
   ) {
-    return Column(
-      children: [
-        // Compact Token Card
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF0FDFA),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFF5EEAD4), width: 1.5),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Token $token', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF0D9488))),
-                  Text('$queue • कमरा नं. $room', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
-                ],
-              ),
-              const Icon(Icons.qr_code_2_rounded, size: 38, color: Color(0xFF0D9488)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 6),
-        // 2 Compact summary tiles
-        Expanded(
-          child: _buildSummaryTile(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool canFlex = constraints.hasBoundedHeight && constraints.maxHeight >= 220;
+
+        Widget buildTiles({required bool useFlex}) {
+          final tile1 = _buildSummaryTile(
             icon: Icons.personal_injury_rounded,
             title: 'तकलीफ (Complaint)',
             value: _complaintText(),
             onEdit: onEdit,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Expanded(
-          child: prakriti != null && prakriti['prakriti'] != null
+          );
+          final tile2 = prakriti != null && prakriti['prakriti'] != null
               ? _buildSummaryTile(
                   icon: Icons.spa_rounded,
                   title: 'प्रकृति (Provisional Prakriti)',
@@ -266,9 +240,51 @@ class ReportScreen extends StatelessWidget {
                   title: 'दर्द की तीव्रता (Severity)',
                   value: 'मध्यम दर्द (Moderate 4/10)',
                   onEdit: onEdit,
+                );
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Compact Token Card
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDFA),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF5EEAD4), width: 1.5),
                 ),
-        ),
-      ],
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Token $token', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF0D9488))),
+                        Text('$queue • कमरा नं. $room', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+                      ],
+                    ),
+                    const Icon(Icons.qr_code_2_rounded, size: 38, color: Color(0xFF0D9488)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              if (useFlex) Expanded(child: tile1) else SizedBox(height: 64, child: tile1),
+              const SizedBox(height: 6),
+              if (useFlex) Expanded(child: tile2) else SizedBox(height: 64, child: tile2),
+            ],
+          );
+        }
+
+        if (canFlex) {
+          return buildTiles(useFlex: true);
+        } else {
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: buildTiles(useFlex: false),
+          );
+        }
+      },
     );
   }
 

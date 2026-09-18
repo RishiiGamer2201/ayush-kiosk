@@ -34,52 +34,62 @@ class PainScreen extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isBounded = constraints.hasBoundedHeight;
+        final bool canFlex = isBounded && constraints.maxHeight >= 360;
 
-        final content = Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Row 1 Title
-            const Text(
-              'दर्द कैसा महसूस होता है? (Pain Sensation)',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
+        Widget buildContent({required bool useFlex}) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Row 1 Title
+              const Text(
+                'दर्द कैसा महसूस होता है? (Pain Sensation)',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 8),
 
-            // Row 1: Sensation Cards
-            if (isBounded)
-              Expanded(flex: 5, child: _buildSensationRow(sensations))
-            else
-              SizedBox(height: 120, child: _buildSensationRow(sensations)),
+              // Row 1: Sensation Cards
+              if (useFlex)
+                Expanded(flex: 5, child: _buildSensationRow(sensations))
+              else
+                SizedBox(height: 110, child: _buildSensationRow(sensations)),
 
-            const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
-            // Row 2 Title
-            const Text(
-              'दर्द कितना तेज है? (Wong-Baker Pain Scale)',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
+              // Row 2 Title
+              const Text(
+                'दर्द कितना तेज है? (Wong-Baker Pain Scale)',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 8),
 
-            // Row 2: Faces Severity Scale
-            if (isBounded)
-              Expanded(flex: 6, child: _buildFacesRow(faces))
-            else
-              SizedBox(height: 140, child: _buildFacesRow(faces)),
-          ],
-        );
+              // Row 2: Faces Severity Scale
+              if (useFlex)
+                Expanded(flex: 6, child: _buildFacesRow(faces))
+              else
+                SizedBox(height: 130, child: _buildFacesRow(faces)),
+            ],
+          );
+        }
 
-        return content;
+        if (canFlex) {
+          return buildContent(useFlex: true);
+        } else {
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: buildContent(useFlex: false),
+          );
+        }
       },
     );
   }

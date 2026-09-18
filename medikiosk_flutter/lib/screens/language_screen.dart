@@ -85,10 +85,11 @@ class LanguageScreen extends StatelessWidget {
         final double spacing = 8.0;
         final int rows = (filteredLanguages.length / crossCount).ceil();
         final double itemHeight = (gridBox.maxHeight - (rows - 1) * spacing) / (rows > 0 ? rows : 1);
-        final double effectiveHeight = itemHeight > 48 ? itemHeight : 56;
+        final bool canFit = itemHeight > 48;
+        final double effectiveHeight = canFit ? itemHeight : 56;
 
         return GridView.builder(
-          physics: const NeverScrollableScrollPhysics(),
+          physics: canFit ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
           shrinkWrap: true,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossCount,

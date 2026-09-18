@@ -69,8 +69,8 @@ class PathwayHubScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            // Responsive Layout: Row on wide, Column on narrow
-            if (isBounded)
+            // Responsive Layout: Row on wide, Column on narrow, scrollable when height is tight
+            if (isBounded && constraints.maxHeight >= 400)
               Expanded(
                 child: isWide
                     ? Row(
@@ -78,7 +78,7 @@ class PathwayHubScreen extends StatelessWidget {
                         children: [
                           for (int i = 0; i < cards.length; i++) ...[
                             if (i > 0) const SizedBox(width: 12),
-                            Expanded(child: _buildCard(cards[i], isWide: true)),
+                            Expanded(child: _buildCard(cards[i], isWide: true, height: null)),
                           ],
                         ],
                       )
@@ -87,21 +87,24 @@ class PathwayHubScreen extends StatelessWidget {
                         children: [
                           for (int i = 0; i < cards.length; i++) ...[
                             if (i > 0) const SizedBox(height: 10),
-                            Expanded(child: _buildCard(cards[i], isWide: false)),
+                            Expanded(child: _buildCard(cards[i], isWide: false, height: null)),
                           ],
                         ],
                       ),
               )
             else
-              SizedBox(
-                height: 380,
-                child: Column(
-                  children: [
-                    for (int i = 0; i < cards.length; i++) ...[
-                      if (i > 0) const SizedBox(height: 10),
-                      Expanded(child: _buildCard(cards[i], isWide: false)),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (int i = 0; i < cards.length; i++) ...[
+                        if (i > 0) const SizedBox(height: 10),
+                        _buildCard(cards[i], isWide: false, height: 76),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
           ],
@@ -112,10 +115,10 @@ class PathwayHubScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCard(_HubPathway card, {required bool isWide}) {
+  Widget _buildCard(_HubPathway card, {required bool isWide, double? height}) {
     return TactileButton(
       onPressed: card.onTap,
-      height: 100, // TactileButton adjusts dynamically inside Expanded
+      height: height ?? (isWide ? 140 : 84),
       borderColor: card.color.withAlpha(120),
       shadowColor: card.color.withAlpha(200),
       borderRadius: BorderRadius.circular(20),
@@ -171,38 +174,35 @@ class PathwayHubScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                   child: Image.asset(
                     card.iconAsset,
-                    width: 48,
-                    height: 48,
+                    width: 44,
+                    height: 44,
                     fit: BoxFit.contain,
                     cacheWidth: 150,
                     cacheHeight: 150,
-                    errorBuilder: (_, _, _) => Icon(card.fallbackIcon, size: 40, color: card.color),
+                    errorBuilder: (_, _, _) => Icon(card.fallbackIcon, size: 36, color: card.color),
                   ),
                 ),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        card.title,
-                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        card.subtitle,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      card.title,
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                      maxLines: 1,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      card.subtitle,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                      maxLines: 1,
+                    ),
+                  ],
                 ),
-                const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF0D9488), size: 18),
+                const SizedBox(width: 8),
+                const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF0D9488), size: 16),
               ],
             ),
     );

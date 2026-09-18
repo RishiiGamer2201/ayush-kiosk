@@ -74,28 +74,34 @@ class FacesSeverityWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const Text(
-          'दर्द कितना तेज़ है? छूकर बताएं (Tap your pain level)',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.textPrimary,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 18),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isBounded = constraints.hasBoundedHeight;
+        final bool canFit = !isBounded || constraints.maxHeight >= 420;
 
-        // Grid of 6 FACES
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          alignment: WrapAlignment.center,
-          children: wongBakerFaces.map((face) {
-            final isSelected = selectedScore == face.score;
+        Widget buildBody() {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Text(
+                'दर्द कितना तेज़ है? छूकर बताएं (Tap your pain level)',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 14),
+
+              // Grid of 6 FACES
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                alignment: WrapAlignment.center,
+                children: wongBakerFaces.map((face) {
+                  final isSelected = selectedScore == face.score;
 
             return GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -205,4 +211,16 @@ class FacesSeverityWidget extends StatelessWidget {
       ],
     );
   }
+
+  if (canFit) {
+    return buildBody();
+  } else {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: buildBody(),
+    );
+  }
+},
+);
+}
 }
