@@ -6,6 +6,7 @@ somebody's hospital.
 """
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -49,6 +50,13 @@ def hospital(settings, monkeypatch, tmp_path):
     sent: list[tuple[str, dict]] = []
     token = tmp_path / "kiosk_token"
     token.write_text("t" * 64, encoding="ascii")
+    if os.name == "posix":
+        token.chmod(0o600)
+    if os.name == "posix":
+        # load_token refuses a token any group member can read, which is the point of it. pytest
+        # creates tmp files under the process umask - 0002 on the kiosk - so without this the
+        # fixture writes 0664 and every test using it fails on a check that is working correctly.
+        token.chmod(0o600)
     settings.handwritten_cloud_ocr = True
     settings.intake_token_path = token
 
@@ -256,6 +264,8 @@ def test_a_kiosk_that_cannot_reach_the_cloud_still_runs_the_whole_intake(setting
     token = settings.session_store_path.parent / "kiosk_token"
     token.parent.mkdir(parents=True, exist_ok=True)
     token.write_text("t" * 64, encoding="ascii")
+    if os.name == "posix":
+        token.chmod(0o600)
     settings.handwritten_cloud_ocr = True
     settings.intake_token_path = token
     monkeypatch.setattr(
