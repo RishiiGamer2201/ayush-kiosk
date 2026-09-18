@@ -49,12 +49,23 @@ _camera = threading.Lock()
 _latest_lock = threading.Lock()
 _latest_jpeg: bytes | None = None
 _latest_face = False
+_latest_at = 0.0
+# The tablet polls the preview every 700 ms; encoding faster than this only costs frames.
+PREVIEW_INTERVAL_S = 0.2
 
 
 def _remember(frame, face_found: bool) -> None:
-    """Keep the most recent frame as a JPEG, cheaply enough to do it every frame."""
+    """Keep a recent frame as a JPEG for the preview, without starving the measurement.
 
-    global _latest_jpeg, _latest_face
+    Encoding every frame cost 1.6 of 13 frames a second - measured - and frames are what the pulse
+    estimate is made of. The tablet polls this about once and a half a second, so encoding five
+    times a second is already more than it can show.
+    """
+
+    global _latest_jpeg, _latest_face, _latest_at
+    now = time.monotonic()
+    if now - _latest_at < PREVIEW_INTERVAL_S:
+        return
     try:
         import cv2
 
@@ -66,6 +77,7 @@ def _remember(frame, face_found: bool) -> None:
     with _latest_lock:
         _latest_jpeg = buffer.tobytes()
         _latest_face = face_found
+        _latest_at = now
 
 
 def estimate_breathing(signal: np.ndarray, fs: float) -> tuple[float | None, bool, float]:
