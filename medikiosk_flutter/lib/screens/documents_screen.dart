@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n.dart';
 import 'package:camera/camera.dart';
 import '../services/camera_service.dart';
 import '../widgets/tactile_button.dart';
@@ -12,12 +14,16 @@ class DocumentsScreen extends StatefulWidget {
   final bool isScanning;
   final String? scanError;
 
+  /// The language the patient chose; this screen's own words follow it.
+  final String language;
+
   const DocumentsScreen({
     super.key,
     required this.headline,
     required this.onScan,
     required this.onDone,
     required this.cameraService,
+    this.language = 'hi',
     this.scannedLines = const [],
     this.isScanning = false,
     this.scanError,
@@ -50,13 +56,13 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
               if (widget.cameraService.controller?.value.isInitialized == true)
                 CameraPreview(widget.cameraService.controller!)
               else
-                const Center(
+                Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.document_scanner_rounded, color: Colors.white54, size: 40),
-                      SizedBox(height: 8),
-                      Text('पर्चे को सामने रखें (Hold Paper Still)', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                      const Icon(Icons.document_scanner_rounded, color: Colors.white54, size: 40),
+                      const SizedBox(height: 8),
+                      Text(tr('hold_paper', widget.language), style: const TextStyle(color: Colors.white70, fontSize: 13)),
                     ],
                   ),
                 ),
@@ -77,7 +83,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                       const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
                       const SizedBox(width: 8),
                       Text(
-                        widget.isScanning ? 'स्कैन हो रहा है...' : 'पर्चा स्कैन करें (Capture Doc)',
+                        widget.isScanning ? tr('scanning', widget.language) : tr('capture_doc', widget.language),
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                     ],
@@ -102,18 +108,18 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 children: [
                   const Icon(Icons.receipt_long_rounded, color: Color(0xFF0D9488), size: 20),
                   const SizedBox(width: 8),
-                  const Text('स्कैन की गई जानकारी (OCR Text)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  Text(tr('ocr_text', widget.language), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                   const Spacer(),
-                  Text('${widget.scannedLines.length} पंक्तियाँ', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                  Text('${widget.scannedLines.length} ${tr('lines', widget.language)}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
                 ],
               ),
               const Divider(height: 12),
               Expanded(
                 child: widget.scannedLines.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
-                          'कोई पर्चा स्कैन नहीं हुआ\n(No documents scanned yet)',
-                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                          tr('no_documents', widget.language),
+                          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
                           textAlign: TextAlign.center,
                         ),
                       )
@@ -166,7 +172,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      widget.headline.isEmpty ? 'पुराने पर्चे या रिपोर्ट स्कैन करें' : widget.headline,
+                      widget.headline.isEmpty ? tr('documents_title', widget.language) : widget.headline,
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -177,7 +183,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                     height: 36,
                     isSuccess: true,
                     borderRadius: BorderRadius.circular(10),
-                    child: const Text('हो गया (Done) ✓', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                    child: Text('${tr('done', widget.language)} ✓', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
                   ),
                 ],
               ),
@@ -194,7 +200,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                       isSelected: _showScannerOnMobile,
                       height: 38,
                       borderRadius: BorderRadius.circular(10),
-                      child: const Text('📷 पर्चा स्कैन', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      child: Text('📷 ${tr('capture_doc', widget.language)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -204,7 +210,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                       isSelected: !_showScannerOnMobile,
                       height: 38,
                       borderRadius: BorderRadius.circular(10),
-                      child: Text('📄 पढ़ी गई सूची (${widget.scannedLines.length})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      child: Text('📄 ${tr('doc_list_tab', widget.language)} (${widget.scannedLines.length})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                     ),
                   ),
                 ],

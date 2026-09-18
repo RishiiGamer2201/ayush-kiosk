@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n.dart';
 import '../models/models.dart';
 import '../widgets/tactile_button.dart';
 
@@ -10,10 +11,14 @@ class ReportScreen extends StatelessWidget {
   final VoidCallback onNewPatient;
   final VoidCallback? onPrintSlip;
   final VoidCallback? onEdit;
+  /// The language the patient chose. The slip is what they carry to the doctor, so its labels
+  /// are written in the language the rest of the session was conducted in.
+  final String language;
 
   const ReportScreen({
     super.key,
     this.reportData,
+    this.language = 'en',
     required this.profile,
     required this.clinicalAnswers,
     required this.extractedDocumentLines,
@@ -87,7 +92,7 @@ class ReportScreen extends StatelessWidget {
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
-                      profile.name.isEmpty ? 'Patient / मरीज़' : profile.name,
+                      profile.name.isEmpty ? tr('not_recorded', language) : profile.name,
                       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -165,33 +170,35 @@ class ReportScreen extends StatelessWidget {
           flex: 5,
           child: Column(
             children: [
+              // These read the intake. They used to be literals, so every slip printed the
+              // same complaint, duration and severity whatever the patient had said.
               Expanded(child: _buildSummaryTile(
                 icon: Icons.personal_injury_rounded,
-                title: 'तकलीफ का स्थान (Chief Complaint)',
+                title: tr('chief_complaint', language),
                 value: _complaintText(),
                 onEdit: onEdit,
               )),
               const SizedBox(height: 6),
               Expanded(child: _buildSummaryTile(
                 icon: Icons.access_time_filled_rounded,
-                title: 'कब से है (Duration)',
-                value: '2 दिन से (Since 2 days)',
+                title: tr('duration', language),
+                value: _durationText(),
                 onEdit: onEdit,
               )),
               const SizedBox(height: 6),
               Expanded(child: prakriti != null
                 ? _buildSummaryTile(
                     icon: Icons.spa_rounded,
-                    title: 'प्रकृति (Provisional Prakriti)',
+                    title: tr('prakriti_title', language),
                     value: prakriti['complete'] == false
-                        ? 'Prakriti incomplete — no classification'
+                        ? tr('prakriti_incomplete', language)
                         : '${prakriti['prakriti'] ?? 'Provisional'} (${_formatMarks(prakriti['marks'])})',
                     onEdit: onEdit,
                   )
                 : _buildSummaryTile(
                     icon: Icons.sentiment_very_dissatisfied_rounded,
-                    title: 'दर्द की तीव्रता (Severity)',
-                    value: 'मध्यम दर्द • Moderate (4/10)',
+                    title: tr('severity', language),
+                    value: _severityText(),
                     onEdit: onEdit,
                   ),
               ),
@@ -322,24 +329,34 @@ class ReportScreen extends StatelessWidget {
             ],
           ),
           const Icon(Icons.qr_code_2_rounded, size: 36, color: Color(0xFF334155)),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.hourglass_top_rounded, size: 13, color: Color(0xFF0D9488)),
-              SizedBox(width: 4),
-              Text('प्रतीक्षा: ~15 मिनट', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF0D9488))),
-            ],
-          ),
         ],
       ),
     );
   }
 
+  Map<String, dynamic> get _clinical =>
+      (reportData?['clinical'] as Map?)?.cast<String, dynamic>() ?? const {};
+
   String _complaintText() {
     if (clinicalAnswers.isNotEmpty) {
       return clinicalAnswers.map((a) => a.answerText).join(', ');
     }
-    return 'सिर दर्द व बुखार (Headache & Fever)';
+    final complaint = '${_clinical['complaint'] ?? ''}'.trim();
+    return complaint.isEmpty ? tr('not_recorded', language) : complaint;
+  }
+
+  String _durationText() {
+    final duration = _clinical['duration'];
+    if (duration == null || '$duration'.trim().isEmpty) return tr('not_recorded', language);
+    // A bare number is a count of days; anything else is the patient's own wording.
+    final days = duration is num ? duration : num.tryParse('$duration'.trim());
+    return days == null ? '$duration' : '$days ${tr('days', language)}';
+  }
+
+  String _severityText() {
+    final severity = _clinical['severity'];
+    if (severity == null) return tr('not_recorded', language);
+    return '$severity / 10';
   }
 
   String _formatMarks(dynamic marks) {

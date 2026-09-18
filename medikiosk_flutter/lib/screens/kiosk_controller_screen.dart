@@ -220,6 +220,7 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
 
     return KioskFrame(
       title: 'MediKiosk',
+      language: _client.language,
       isConnected: isConnected,
       isListening: _audio.isListening && _client.voiceAvailable,
       onBack: canBack ? () => _client.action('back') : null,
@@ -692,6 +693,14 @@ class _WorkflowBodyState extends State<WorkflowBody> {
 
   /// One touch control that answers the current question outright, for the stages where the flow
   /// sends no options to build cards from.
+  /// The label the flow sent for one option value, in the patient's language.
+  String? _optionLabel(String value) {
+    for (final option in client.options) {
+      if ('${option['value']}' == value) return '${option['label'] ?? ''}';
+    }
+    return null;
+  }
+
   Widget _buildAnswerCard(String label, String value, _OptionMeta meta) {
     return TactileButton(
       onPressed: _blocked ? null : () => client.action('answer', value),
@@ -741,7 +750,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
           ),
-          if (meta.sub.isNotEmpty) ...[
+          if (meta.sub.isNotEmpty && (client.language == 'en' || client.language == 'hi')) ...[
             const SizedBox(height: 2),
             Text(
               meta.sub,
@@ -915,6 +924,10 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     // 2. Hub Stage
     if (stage == KioskStage.hub && optionValues.contains('clinical')) {
       return PathwayHubScreen(
+        language: client.language,
+        symptomsLabel: _optionLabel('clinical'),
+        prakritiLabel: _optionLabel('prakriti'),
+        vitalsLabel: _optionLabel('vitals'),
         onSelectSymptoms: () { if (!_blocked) client.action('choose', 'clinical'); },
         onSelectPrakriti: () { if (!_blocked) client.action('choose', 'prakriti'); },
         onSelectVitals: optionValues.contains('vitals')
@@ -927,6 +940,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     // 3. Registration Stage
     if (stage == KioskStage.registration && widget.cameraService != null) {
       return RegistrationScreen(
+        language: client.language,
         initialProfile: PatientProfile(),
         cameraService: widget.cameraService!,
         // Previously this sent choose/'walk_in', which the flow read as the patient's *name* and
@@ -995,10 +1009,9 @@ class _WorkflowBodyState extends State<WorkflowBody> {
       final registeredAge = registered['age'];
       final visualReport = ReportScreen(
         reportData: report,
+        language: client.language,
         profile: PatientProfile(
-          name: '${registered['name'] ?? ''}'.trim().isEmpty
-              ? 'Patient / मरीज़'
-              : '${registered['name']}'.trim(),
+          name: '${registered['name'] ?? ''}'.trim(),
           age: registeredAge is num ? registeredAge.toInt() : int.tryParse('$registeredAge'),
           gender: '${registered['gender'] ?? ''}'.trim().isEmpty
               ? 'Not stated'
@@ -1252,6 +1265,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
 
       if (displayOptions.isEmpty && stage == KioskStage.interview && client.answerUi == 'faces') ...[
         FacesSeverityWidget(
+          language: client.language,
           selectedScore: _selectedSeverity,
           onScoreSelected: (score) {
             if (_blocked) return;

@@ -171,7 +171,7 @@ class _InterviewScreenState extends State<InterviewScreen> {
       );
     }
 
-    if (qId.contains('duration') || widget.answerUi == 'duration_sun') {
+    if (qId.contains('duration') || widget.answerUi == 'duration' || widget.answerUi == 'duration_sun') {
       return DurationSunWidget(
         selectedDuration: _selectedDuration,
         onSelected: (opt) {

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n.dart';
 import '../theme/app_theme.dart';
 
 class FaceScore {
@@ -65,11 +67,13 @@ const List<FaceScore> wongBakerFaces = [
 class FacesSeverityWidget extends StatelessWidget {
   final int? selectedScore;
   final ValueChanged<int> onScoreSelected;
+  final String language;
 
   const FacesSeverityWidget({
     super.key,
     this.selectedScore,
     required this.onScoreSelected,
+    this.language = 'hi',
   });
 
   @override
@@ -84,8 +88,8 @@ class FacesSeverityWidget extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Text(
-                'दर्द कितना तेज़ है? छूकर बताएं (Tap your pain level)',
+              Text(
+                tr('pain_prompt', language),
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,

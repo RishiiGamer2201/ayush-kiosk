@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n.dart';
 import '../widgets/tactile_button.dart';
 
 class PathwayHubScreen extends StatelessWidget {
@@ -6,9 +8,19 @@ class PathwayHubScreen extends StatelessWidget {
   final VoidCallback onSelectPrakriti;
   final VoidCallback? onSelectVitals;
   final VoidCallback? onBackToRegistration;
+  /// The three labels the flow sent, in the patient's language. The flow translates these into
+  /// all nine languages and this screen used to print its own Hindi instead.
+  final String? symptomsLabel;
+  final String? prakritiLabel;
+  final String? vitalsLabel;
+  final String language;
 
   const PathwayHubScreen({
     super.key,
+    this.symptomsLabel,
+    this.prakritiLabel,
+    this.vitalsLabel,
+    this.language = 'hi',
     required this.onSelectSymptoms,
     required this.onSelectPrakriti,
     this.onSelectVitals,
@@ -24,18 +36,18 @@ class PathwayHubScreen extends StatelessWidget {
 
         final cards = [
           _HubPathway(
-            title: 'बीमारी की जाँच',
+            title: symptomsLabel ?? 'OPD checkup',
             subtitle: 'OPD Checkup & Medicine',
-            badge: 'प्राथमिक जाँच • General OPD',
+            badge: 'General OPD',
             iconAsset: 'assets/icons/opd.png',
             fallbackIcon: Icons.medical_services_rounded,
             color: const Color(0xFF0D9488),
             onTap: onSelectSymptoms,
           ),
           _HubPathway(
-            title: 'प्रकृति परीक्षण',
+            title: prakritiLabel ?? 'Prakriti assessment',
             subtitle: 'Ayurveda Prakriti Assessment',
-            badge: 'आयुष निदान • AYUSH Body Type',
+            badge: 'AYUSH body type',
             iconAsset: 'assets/icons/ayurveda.png',
             fallbackIcon: Icons.spa_rounded,
             color: const Color(0xFF059669),
@@ -43,9 +55,9 @@ class PathwayHubScreen extends StatelessWidget {
           ),
           if (onSelectVitals != null)
             _HubPathway(
-              title: 'स्मार्ट वाइटल्स',
+              title: vitalsLabel ?? 'Smart vitals',
               subtitle: 'Camera Heart Rate Check',
-              badge: 'कैमरा जाँच • Smart Vitals',
+              badge: 'Smart vitals',
               iconAsset: 'assets/icons/vitals.png',
               fallbackIcon: Icons.favorite_rounded,
               color: const Color(0xFF0284C7),
@@ -58,8 +70,8 @@ class PathwayHubScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Headline
-            const Text(
-              'आप आज क्या करवाना चाहते हैं? (Select Service)',
+            Text(
+              tr('select_service', language),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w900,

@@ -137,7 +137,8 @@ class PatientProfile {
   bool isWalkIn;
 
   PatientProfile({
-    this.name = 'Patient / मरीज़',
+    // Empty, not a placeholder: a pre-filled name is submitted as the patient's own.
+    this.name = '',
     this.age = 35,
     this.gender = 'Male',
     this.abhaNumber,

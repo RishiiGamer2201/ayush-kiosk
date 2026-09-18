@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n.dart';
 import 'tactile_button.dart';
 
 /// Universal Kiosk Frame enforcing single-screen viewport fit with ZERO scrolling.
@@ -17,10 +18,14 @@ class KioskFrame extends StatelessWidget {
   final bool isConnected;
   final String? title;
   final String? currentStepLabel;
+  /// The language the patient chose. The bar and the footer are on every screen, so leaving them
+  /// in one language put Hindi controls around a Tamil question.
+  final String language;
 
   const KioskFrame({
     super.key,
     required this.body,
+    this.language = 'hi',
     this.onBack,
     this.onNext,
     this.onRepeatAudio,
@@ -94,7 +99,7 @@ class KioskFrame extends StatelessWidget {
                   const Icon(Icons.arrow_back_rounded, size: 20, color: Color(0xFF334155)),
                   if (!isNarrow) ...[
                     const SizedBox(width: 4),
-                    const Text('वापस', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                    Text(tr('back', language), style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
                   ],
                 ],
               ),
@@ -216,7 +221,7 @@ class KioskFrame extends StatelessWidget {
                             const Icon(Icons.volume_up_rounded, size: 20, color: Color(0xFF0D9488)),
                             if (!isNarrow) ...[
                               const SizedBox(width: 4),
-                              const Text('सुनें', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0F766E))),
+                              Text(tr('listen', language), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0F766E))),
                             ],
                           ],
                         ),
@@ -240,7 +245,7 @@ class KioskFrame extends StatelessWidget {
                             const Icon(Icons.restart_alt_rounded, size: 20, color: Color(0xFFD97706)),
                             if (!isNarrow) ...[
                               const SizedBox(width: 4),
-                              const Text('फिर से', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFB45309))),
+                              Text(tr('again', language), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFB45309))),
                             ],
                           ],
                         ),
@@ -262,7 +267,7 @@ class KioskFrame extends StatelessWidget {
                           const Icon(Icons.support_agent_rounded, size: 20, color: Color(0xFFDC2626)),
                           const SizedBox(width: 4),
                           Text(
-                            isNarrow ? 'मदद' : 'कर्मचारी मदद',
+                            tr('staff_help', language),
                             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFB91C1C)),
                           ),
                         ],
@@ -312,7 +317,7 @@ class KioskFrame extends StatelessWidget {
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
-                          'पता नहीं',
+                          tr('dont_know', language),
                           style: TextStyle(
                             fontSize: isNarrow ? 12 : 13,
                             fontWeight: FontWeight.w800,
@@ -348,7 +353,7 @@ class KioskFrame extends StatelessWidget {
                       const SizedBox(width: 3),
                       Flexible(
                         child: Text(
-                          'छोड़ें',
+                          tr('skip', language),
                           style: TextStyle(
                             fontSize: isNarrow ? 12 : 13,
                             fontWeight: FontWeight.w800,
@@ -387,7 +392,7 @@ class KioskFrame extends StatelessWidget {
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
-                        isListening ? 'माइक चालू है' : 'आवाज तैयार',
+                        isListening ? tr('mic_on', language) : tr('voice_ready', language),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -417,7 +422,7 @@ class KioskFrame extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      isNarrow ? 'आगे ➔' : '✓ आगे बढ़ें ➔',
+                      '${tr('next', language)} ➔',
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Colors.white),
                     ),
                   ],

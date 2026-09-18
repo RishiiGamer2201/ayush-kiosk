@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n.dart';
 import 'package:camera/camera.dart';
 import '../models/models.dart';
 import '../services/camera_service.dart';
@@ -12,10 +14,14 @@ class RegistrationScreen extends StatefulWidget {
   final bool isScanning;
   final String? scanError;
 
+  /// The language the patient chose; this screen's own words follow it.
+  final String language;
+
   const RegistrationScreen({
     super.key,
     required this.initialProfile,
     required this.cameraService,
+    this.language = 'hi',
     required this.onRegister,
     required this.onScanCard,
     this.isScanning = false,
@@ -77,7 +83,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 controller: _nameController,
                 style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 decoration: InputDecoration(
-                  labelText: 'मरीज़ का नाम (Patient Name)',
+                  labelText: tr('patient_name', widget.language),
                   prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF0D9488)),
                   filled: true,
                   fillColor: Colors.white,
@@ -96,7 +102,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       keyboardType: TextInputType.number,
                       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                       decoration: InputDecoration(
-                        labelText: 'उम्र (Age in Years)',
+                        labelText: tr('age_years', widget.language),
                         prefixIcon: const Icon(Icons.cake_outlined, color: Color(0xFF0D9488)),
                         filled: true,
                         fillColor: Colors.white,
@@ -134,11 +140,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               // Gender Selector 3D Pills
               Row(
                 children: [
-                  _buildGenderPill('Male', 'पुरुष (M)', Icons.male_rounded),
+                  _buildGenderPill('Male', tr('male', widget.language), Icons.male_rounded),
                   const SizedBox(width: 8),
-                  _buildGenderPill('Female', 'महिला (F)', Icons.female_rounded),
+                  _buildGenderPill('Female', tr('female', widget.language), Icons.female_rounded),
                   const SizedBox(width: 8),
-                  _buildGenderPill('Other', 'अन्य (O)', Icons.transgender_rounded),
+                  _buildGenderPill('Other', tr('other_gender', widget.language), Icons.transgender_rounded),
                 ],
               ),
               const SizedBox(height: 10),
@@ -149,7 +155,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 keyboardType: TextInputType.number,
                 style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 decoration: InputDecoration(
-                  labelText: 'ABHA / आधार संख्या (वैकल्पिक Optional)',
+                  labelText: tr('abha_optional', widget.language),
                   prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFF0D9488)),
                   filled: true,
                   fillColor: Colors.white,
@@ -174,13 +180,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               if (widget.cameraService.controller?.value.isInitialized == true)
                 CameraPreview(widget.cameraService.controller!)
               else
-                const Center(
+                Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.camera_alt_rounded, color: Colors.white54, size: 40),
-                      SizedBox(height: 8),
-                      Text('कैमरा स्कैनर तैयार है', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                      const Icon(Icons.camera_alt_rounded, color: Colors.white54, size: 40),
+                      const SizedBox(height: 8),
+                      Text(tr('camera_ready', widget.language), style: const TextStyle(color: Colors.white70, fontSize: 13)),
                     ],
                   ),
                 ),
@@ -212,7 +218,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       const Icon(Icons.camera_rounded, color: Colors.white, size: 20),
                       const SizedBox(width: 8),
                       Text(
-                        widget.isScanning ? 'स्कैन हो रहा है...' : 'कार्ड स्कैन करें (Scan ID)',
+                        widget.isScanning ? tr('scanning', widget.language) : tr('scan_id', widget.language),
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                     ],
@@ -228,15 +234,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           height: 52,
           isSuccess: true,
           borderRadius: BorderRadius.circular(16),
-          child: const Row(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.check_circle_rounded, color: Colors.white, size: 22),
-              SizedBox(width: 8),
+              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 22),
+              const SizedBox(width: 8),
               Text(
-                'मरीज़ जोड़ें व आगे बढ़ें (Register & Continue) ➔',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white),
+                '${tr('register_continue', widget.language)} ➔',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white),
               ),
             ],
           ),
@@ -245,9 +251,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         final body = Column(
           children: [
             // Top Title
-            const Text(
-              'मरीज़ का विवरण भरें (Patient Registration)',
-              style: TextStyle(
+            Text(
+              tr('patient_registration', widget.language),
+              style: const TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w900,
                 color: Color(0xFF0F172A),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n.dart';
 import 'package:camera/camera.dart';
 import '../services/camera_service.dart';
 import '../widgets/tactile_button.dart';
@@ -12,12 +14,16 @@ class AbhaScreen extends StatefulWidget {
   final bool isScanning;
   final String? scanError;
 
+  /// The language the patient chose; this screen's own words follow it.
+  final String language;
+
   const AbhaScreen({
     super.key,
     required this.headline,
     required this.onSubmitAbha,
     required this.onSkip,
     required this.cameraService,
+    this.language = 'hi',
     required this.onScanCard,
     this.isScanning = false,
     this.scanError,
@@ -74,13 +80,13 @@ class _AbhaScreenState extends State<AbhaScreen> {
               if (widget.cameraService.controller?.value.isInitialized == true)
                 CameraPreview(widget.cameraService.controller!)
               else
-                const Center(
+                Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.qr_code_scanner_rounded, color: Colors.white54, size: 40),
-                      SizedBox(height: 8),
-                      Text('ABHA कार्ड को सामने रखें', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                      const Icon(Icons.qr_code_scanner_rounded, color: Colors.white54, size: 40),
+                      const SizedBox(height: 8),
+                      Text(tr('abha_hold_card', widget.language), style: const TextStyle(color: Colors.white70, fontSize: 13)),
                     ],
                   ),
                 ),
@@ -112,7 +118,7 @@ class _AbhaScreenState extends State<AbhaScreen> {
                       const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 18),
                       const SizedBox(width: 8),
                       Text(
-                        widget.isScanning ? 'स्कैन हो रहा है...' : 'ABHA कार्ड स्कैन करें',
+                        widget.isScanning ? tr('scanning', widget.language) : tr('abha_scan_card', widget.language),
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                     ],
@@ -134,7 +140,7 @@ class _AbhaScreenState extends State<AbhaScreen> {
                 border: Border.all(color: const Color(0xFFCBD5E1), width: 1.5),
               ),
               child: Text(
-                _digits.isEmpty ? '14-अंक ABHA नंबर' : _formattedAbha,
+                _digits.isEmpty ? tr('abha_14_digits', widget.language) : _formattedAbha,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
@@ -220,7 +226,7 @@ class _AbhaScreenState extends State<AbhaScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      widget.headline.isEmpty ? 'आयुष्मान भारत डिजिटल मिशन (ABHA ID)' : widget.headline,
+                      widget.headline.isEmpty ? tr('abha_title', widget.language) : widget.headline,
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -231,7 +237,7 @@ class _AbhaScreenState extends State<AbhaScreen> {
                     height: 34,
                     backgroundColor: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(10),
-                    child: const Text('छोड़ें (Skip)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                    child: Text(tr('skip', widget.language), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
                   ),
                 ],
               ),
@@ -248,7 +254,7 @@ class _AbhaScreenState extends State<AbhaScreen> {
                       isSelected: !_showScannerOnMobile,
                       height: 38,
                       borderRadius: BorderRadius.circular(10),
-                      child: const Text('🔢 14-अंक नंबर', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      child: Text('🔢 ${tr('enter_number', widget.language)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -258,7 +264,7 @@ class _AbhaScreenState extends State<AbhaScreen> {
                       isSelected: _showScannerOnMobile,
                       height: 38,
                       borderRadius: BorderRadius.circular(10),
-                      child: const Text('📷 कार्ड स्कैन', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      child: Text('📷 ${tr('scan_card_tab', widget.language)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                     ),
                   ),
                 ],
