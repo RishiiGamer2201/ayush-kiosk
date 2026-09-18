@@ -613,10 +613,8 @@ class KioskFlow:
         if question_id is not None and question_id != current.get("question_id"):
             raise ValueError("Question changed")
         if self.stage is Stage.LANGUAGE:
-            if action != "choose" or value not in {"en", "hi"}:
-                raise ValueError(
-                    "Complete offline consent/content currently available in English and Hindi"
-                )
+            if action != "choose" or value not in LANGUAGE_CODES:
+                raise ValueError("That language is not offered on this kiosk")
             self.language, self.stage = value, Stage.WHO
         elif self.stage is Stage.WHO:
             if action != "choose" or value not in {
