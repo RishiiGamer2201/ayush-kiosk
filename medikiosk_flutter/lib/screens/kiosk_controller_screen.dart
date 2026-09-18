@@ -671,7 +671,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
 // Choice stages rendered via TactileButton options grid
 
     // 13. General Question View (Strictly preserves all test selectors)
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+    return SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Semantics(header: true, child: Text(client.headline, style: Theme.of(context).textTheme.headlineSmall)),
       if (client.progress case final progress?)
         Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text('${progress[0]} / ${progress[1]}')),
@@ -711,7 +711,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
         for (final action in actions.where((a) => !{'answer', 'choose', 'edit', 'preview', 'document'}.contains(a)))
           button(_label(action), action),
       ]),
-    ]);
+    ]));
   }
 
   String _label(String action) => switch (action) {
