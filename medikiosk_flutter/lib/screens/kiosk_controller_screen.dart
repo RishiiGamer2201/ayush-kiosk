@@ -194,22 +194,57 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
   @override
   Widget build(BuildContext context) {
     final actions = List<String>.from(_client.screen['allowed_actions'] as List? ?? []);
+    final options = _client.options;
+    final stage = _client.currentStage;
+    final isConnected = _client.status == ConnectionStatus.connected;
+
     final canBack = actions.contains('back');
-    final canSkip = actions.contains('skip') || actions.contains('unknown');
-    final canRepeat = actions.contains('repeat');
+    final canRepeat = isConnected && (actions.contains('repeat') || stage == KioskStage.interview || stage == KioskStage.language);
+    final canRestart = isConnected;
+    final canHelp = isConnected;
+
+    // Footer buttons (Pata nahi, Skip, No, Yes)
+    final onDontKnow = (actions.contains('unknown') || stage == KioskStage.interview)
+        ? () => _client.action('unknown')
+        : null;
+
+    final onSkip = (actions.contains('skip') || stage == KioskStage.abha || stage == KioskStage.documents || stage == KioskStage.interview)
+        ? () => _client.action('skip')
+        : null;
+
+    VoidCallback? onYes;
+    final hasYesOption = options.any((o) => '${o['value']}'.toLowerCase() == 'yes');
+    if (hasYesOption) {
+      final yesOpt = options.firstWhere((o) => '${o['value']}'.toLowerCase() == 'yes');
+      onYes = () => _client.action('choose', yesOpt['value']);
+    } else if (actions.contains('confirm')) {
+      onYes = () => _client.action('confirm');
+    } else if (stage == KioskStage.interview || stage == KioskStage.consent) {
+      onYes = () => _client.action('answer', 'yes');
+    }
+
+    VoidCallback? onNo;
+    final hasNoOption = options.any((o) => '${o['value']}'.toLowerCase() == 'no');
+    if (hasNoOption) {
+      final noOpt = options.firstWhere((o) => '${o['value']}'.toLowerCase() == 'no');
+      onNo = () => _client.action('choose', noOpt['value']);
+    } else if (stage == KioskStage.interview || stage == KioskStage.consent) {
+      onNo = () => _client.action('answer', 'no');
+    }
 
     return KioskFrame(
       title: 'MediKiosk',
-      isConnected: _client.status == ConnectionStatus.connected,
+      isConnected: isConnected,
       isListening: _audio.isListening && _client.voiceAvailable,
       onBack: canBack ? () => _client.action('back') : null,
       onRepeatAudio: canRepeat ? () => _client.action('repeat') : null,
-      onStaffHelp: () => _client.action('help'),
-      onSkip: canSkip ? () => _client.action(actions.contains('skip') ? 'skip' : 'unknown') : null,
+      onRestart: canRestart ? () => _client.action('restart') : _client.reconnect,
+      onStaffHelp: canHelp ? () => _client.action('help') : null,
+      onDontKnow: onDontKnow,
+      onSkip: onSkip,
+      onYes: onYes,
+      onNo: onNo,
       onSettings: _configure,
-      onRestart: _client.status == ConnectionStatus.connected
-          ? () => _client.action('restart')
-          : _client.reconnect,
       body: Stack(
         children: [
           if (_scanning) const Positioned(top: 0, left: 0, right: 0, child: LinearProgressIndicator()),
@@ -232,6 +267,7 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
             onScanCard: _scan,
             isScanning: _scanning,
             scanError: _scanError,
+            hideSystemActions: true,
           ),
         ],
       ),
@@ -261,6 +297,8 @@ class WorkflowBody extends StatefulWidget {
   final bool isScanning;
   final String? scanError;
 
+  final bool hideSystemActions;
+
   const WorkflowBody({
     super.key,
     required this.client,
@@ -269,10 +307,23 @@ class WorkflowBody extends StatefulWidget {
     this.onScanCard,
     this.isScanning = false,
     this.scanError,
+    this.hideSystemActions = false,
   });
 
   @override
   State<WorkflowBody> createState() => _WorkflowBodyState();
+}
+
+class _OptionMeta {
+  final String emoji;
+  final String sub;
+  final Color color;
+
+  const _OptionMeta({
+    required this.emoji,
+    required this.sub,
+    required this.color,
+  });
 }
 
 class _WorkflowBodyState extends State<WorkflowBody> {
@@ -289,6 +340,178 @@ class _WorkflowBodyState extends State<WorkflowBody> {
 
   KioskClient get client => widget.client;
   bool get _blocked => client.isProcessing || client.status != ConnectionStatus.connected;
+
+  List<String> _filteredActions(List<String> actions) {
+    if (!widget.hideSystemActions) {
+      return actions.where((a) => !{'answer', 'choose', 'edit', 'preview', 'document'}.contains(a)).toList();
+    }
+    return actions.where((a) => !{
+      'answer', 'choose', 'edit', 'preview', 'document',
+      'repeat', 'restart', 'help',
+      'unknown', 'skip', 'yes', 'no',
+      'more_time', 'wait', 'slower', 'withdraw',
+    }.contains(a)).toList();
+  }
+
+  _OptionMeta _resolveOptionMeta(String label, String value) {
+    final text = '$label $value'.toLowerCase();
+
+    if (text.contains('yes') || text.contains('हाँ') || text.contains('हो') || text.contains('true')) {
+      return const _OptionMeta(emoji: '✓', sub: 'Yes / हाँ', color: Color(0xFF16A34A));
+    }
+    if (text.contains('no') || text.contains('नहीं') || text.contains('ना') || text.contains('false')) {
+      return const _OptionMeta(emoji: '✕', sub: 'No / नहीं', color: Color(0xFFDC2626));
+    }
+    if (text.contains('sharp') || text.contains('चुभन') || text.contains('stabbing')) {
+      return const _OptionMeta(emoji: '💥', sub: 'Sharp', color: Color(0xFFEF4444));
+    }
+    if (text.contains('burn') || text.contains('जलन') || text.contains('flame')) {
+      return const _OptionMeta(emoji: '🔥', sub: 'Burning', color: Color(0xFFF97316));
+    }
+    if (text.contains('dull') || text.contains('भारीपन') || text.contains('heavy') || text.contains('ache')) {
+      return const _OptionMeta(emoji: '😣', sub: 'Heavy / Dull', color: Color(0xFFEAB308));
+    }
+    if (text.contains('throb') || text.contains('झटका') || text.contains('jolt') || text.contains('electric')) {
+      return const _OptionMeta(emoji: '⚡', sub: 'Jolt / Throbbing', color: Color(0xFF8B5CF6));
+    }
+    if (text.contains('mild') || text.contains('थोड़ा') || text.contains('कम') || text.contains('slight')) {
+      return const _OptionMeta(emoji: '🙂', sub: 'Mild', color: Color(0xFF22C55E));
+    }
+    if (text.contains('moderate') || text.contains('मध्यम') || text.contains('medium')) {
+      return const _OptionMeta(emoji: '😐', sub: 'Moderate', color: Color(0xFFEAB308));
+    }
+    if (text.contains('severe') || text.contains('ज्यादा') || text.contains('तेज')) {
+      return const _OptionMeta(emoji: '😣', sub: 'Severe', color: Color(0xFFF97316));
+    }
+    if (text.contains('worst') || text.contains('बहुत ज्यादा') || text.contains('unbearable')) {
+      return const _OptionMeta(emoji: '😭', sub: 'Very Severe', color: Color(0xFFEF4444));
+    }
+    if (text.contains('fever') || text.contains('बुखार') || text.contains('temp')) {
+      return const _OptionMeta(emoji: '🌡️', sub: 'Fever', color: Color(0xFFEA580C));
+    }
+    if (text.contains('cough') || text.contains('खांसी') || text.contains('phlegm') || text.contains('बलगम')) {
+      return const _OptionMeta(emoji: '😷', sub: 'Cough', color: Color(0xFF0284C7));
+    }
+    if (text.contains('cold') || text.contains('जुकाम') || text.contains('sneeze') || text.contains('छींक')) {
+      return const _OptionMeta(emoji: '🤧', sub: 'Cold', color: Color(0xFF0284C7));
+    }
+    if (text.contains('head') || text.contains('सिर') || text.contains('migraine')) {
+      return const _OptionMeta(emoji: '🤕', sub: 'Headache', color: Color(0xFF7C3AED));
+    }
+    if (text.contains('stomach') || text.contains('पेट') || text.contains('abdomen') || text.contains('digest')) {
+      return const _OptionMeta(emoji: '🤢', sub: 'Stomach', color: Color(0xFF16A34A));
+    }
+    if (text.contains('chest') || text.contains('छाती') || text.contains('heart') || text.contains('दिल')) {
+      return const _OptionMeta(emoji: '🫀', sub: 'Chest / Heart', color: Color(0xFFE11D48));
+    }
+    if (text.contains('joint') || text.contains('जोड़') || text.contains('knee') || text.contains('घुटने') || text.contains('bone')) {
+      return const _OptionMeta(emoji: '🦴', sub: 'Joints / Bone', color: Color(0xFFD97706));
+    }
+    if (text.contains('throat') || text.contains('गला')) {
+      return const _OptionMeta(emoji: '🗣️', sub: 'Throat', color: Color(0xFF9333EA));
+    }
+    if (text.contains('ear') || text.contains('कान')) {
+      return const _OptionMeta(emoji: '👂', sub: 'Ear', color: Color(0xFF4F46E5));
+    }
+    if (text.contains('eye') || text.contains('आँख') || text.contains('दृष्टि')) {
+      return const _OptionMeta(emoji: '👁️', sub: 'Eye', color: Color(0xFF0891B2));
+    }
+    if (text.contains('skin') || text.contains('त्वचा') || text.contains('rash') || text.contains('खुजली')) {
+      return const _OptionMeta(emoji: '🫧', sub: 'Skin', color: Color(0xFFCA8A04));
+    }
+    if (text.contains('vomit') || text.contains('उल्टी')) {
+      return const _OptionMeta(emoji: '🤮', sub: 'Vomiting', color: Color(0xFF16A34A));
+    }
+    if (text.contains('diarrhea') || text.contains('दस्त') || text.contains('loose')) {
+      return const _OptionMeta(emoji: '💧', sub: 'Diarrhea', color: Color(0xFF0284C7));
+    }
+    if (text.contains('weak') || text.contains('कमजोरी') || text.contains('fatigue') || text.contains('थकान')) {
+      return const _OptionMeta(emoji: '🥱', sub: 'Fatigue', color: Color(0xFFD97706));
+    }
+    if (text.contains('breath') || text.contains('सांस')) {
+      return const _OptionMeta(emoji: '🫁', sub: 'Breathing', color: Color(0xFF0284C7));
+    }
+    if (text.contains('bleed') || text.contains('खून')) {
+      return const _OptionMeta(emoji: '🩸', sub: 'Bleeding', color: Color(0xFFDC2626));
+    }
+    if (text.contains('male') || text.contains('पुरुष')) {
+      return const _OptionMeta(emoji: '👨', sub: 'Male', color: Color(0xFF2563EB));
+    }
+    if (text.contains('female') || text.contains('महिला')) {
+      return const _OptionMeta(emoji: '👩', sub: 'Female', color: Color(0xFFDB2777));
+    }
+    if (text.contains('self') || text.contains('walk_in') || text.contains('खुद')) {
+      return const _OptionMeta(emoji: '👤', sub: 'Self', color: Color(0xFF0D9488));
+    }
+    if (text.contains('proxy') || text.contains('family') || text.contains('रिश्तेदार')) {
+      return const _OptionMeta(emoji: '👥', sub: 'Family', color: Color(0xFF0D9488));
+    }
+    if (text.contains('morning') || text.contains('सुबह')) {
+      return const _OptionMeta(emoji: '🌅', sub: 'Morning', color: Color(0xFFF59E0B));
+    }
+    if (text.contains('night') || text.contains('रात')) {
+      return const _OptionMeta(emoji: '🌙', sub: 'Night', color: Color(0xFF6366F1));
+    }
+    if (text.contains('food') || text.contains('खाना') || text.contains('भोजन') || text.contains('diet') || text.contains('भूख')) {
+      return const _OptionMeta(emoji: '🍽️', sub: 'Diet / Food', color: Color(0xFF10B981));
+    }
+    if (text.contains('water') || text.contains('पानी') || text.contains('प्यास')) {
+      return const _OptionMeta(emoji: '💧', sub: 'Water', color: Color(0xFF0284C7));
+    }
+    if (text.contains('sleep') || text.contains('नींद')) {
+      return const _OptionMeta(emoji: '😴', sub: 'Sleep', color: Color(0xFF6366F1));
+    }
+
+    return _OptionMeta(emoji: '🩺', sub: value, color: const Color(0xFF0D9488));
+  }
+
+  Widget _buildOptionCard(int index, Map<String, dynamic> opt) {
+    final rawLabel = '${opt['label'] ?? opt['value'] ?? ''}';
+    final rawValue = opt['value'];
+    final meta = _resolveOptionMeta(rawLabel, '$rawValue');
+    final buttonLabel = '${index + 1}. $rawLabel';
+
+    return TactileButton(
+      onPressed: _blocked ? null : () => client.action('choose', rawValue),
+      height: 105,
+      borderColor: meta.color.withAlpha(120),
+      shadowColor: meta.color.withAlpha(180),
+      borderRadius: BorderRadius.circular(18),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(meta.emoji, style: const TextStyle(fontSize: 32)),
+          const SizedBox(height: 5),
+          Text(
+            buttonLabel,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF0F172A),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+          if (meta.sub.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              meta.sub,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF64748B),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
   Widget button(String label, String action, [dynamic value]) => Padding(
     padding: const EdgeInsets.all(4),
@@ -372,10 +595,11 @@ class _WorkflowBodyState extends State<WorkflowBody> {
               ),
             ),
             const SizedBox(height: 10),
-            Wrap(alignment: WrapAlignment.center, children: [
-              for (final action in actions.where((a) => !{'answer', 'choose', 'edit', 'preview', 'document'}.contains(a)))
-                button(_label(action), action),
-            ]),
+            if (_filteredActions(actions).isNotEmpty)
+              Wrap(alignment: WrapAlignment.center, children: [
+                for (final action in _filteredActions(actions))
+                  button(_label(action), action),
+              ]),
           ],
         );
       },
@@ -409,10 +633,11 @@ class _WorkflowBodyState extends State<WorkflowBody> {
         onPressed: _blocked || client.narrative.trim().isEmpty ? null : client.submitNarrative,
         icon: const Icon(Icons.arrow_forward_rounded),
         label: Text(tr('proceed', client.language), style: const TextStyle(fontSize: 18)))),
-      Wrap(children: [
-        for (final action in actions.where((a) => !{'answer', 'choose', 'edit', 'preview', 'document'}.contains(a)))
-          button(_label(action), action),
-      ]),
+      if (_filteredActions(actions).isNotEmpty)
+        Wrap(children: [
+          for (final action in _filteredActions(actions))
+            button(_label(action), action),
+        ]),
     ]);
   }
 
@@ -677,8 +902,28 @@ class _WorkflowBodyState extends State<WorkflowBody> {
         Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text('${progress[0]} / ${progress[1]}')),
       const SizedBox(height: 12),
 
-      for (final entry in client.options.indexed)
-        button('${entry.$1 + 1}. ${entry.$2['label']}', 'choose', entry.$2['value']),
+      if (client.options.isNotEmpty) ...[
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 550;
+            final count = client.options.length;
+            final crossCount = isWide ? (count <= 4 ? count : 4) : (count == 1 ? 1 : 2);
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossCount,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                mainAxisExtent: 105,
+              ),
+              itemCount: count,
+              itemBuilder: (context, i) => _buildOptionCard(i, client.options[i]),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+      ],
 
       if (client.options.isEmpty && ['text', 'number', 'camera_or_text', 'voice'].contains(input)) ...[
         TextField(
@@ -707,10 +952,11 @@ class _WorkflowBodyState extends State<WorkflowBody> {
 
       if (stage == KioskStage.unavailable) Text(tr('unsupported', client.language)),
 
-      Wrap(children: [
-        for (final action in actions.where((a) => !{'answer', 'choose', 'edit', 'preview', 'document'}.contains(a)))
-          button(_label(action), action),
-      ]),
+      if (_filteredActions(actions).isNotEmpty)
+        Wrap(children: [
+          for (final action in _filteredActions(actions))
+            button(_label(action), action),
+        ]),
     ]));
   }
 

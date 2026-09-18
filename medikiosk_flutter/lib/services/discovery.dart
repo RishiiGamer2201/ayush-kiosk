@@ -23,6 +23,7 @@ class Discovery {
     if (remembered != null && await _isKiosk(remembered)) return remembered;
     if (await _isKiosk('127.0.0.1')) return '127.0.0.1';
     if (await _isKiosk('100.104.251.40')) return '100.104.251.40';
+    if (await _isKiosk('192.168.1.7')) return '192.168.1.7';
     if (await _isKiosk('192.168.191.75')) return '192.168.191.75';
 
     final subnets = await _localSubnets();
