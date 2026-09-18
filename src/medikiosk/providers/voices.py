@@ -42,13 +42,20 @@ def level(wav_bytes: bytes) -> bytes:
     neither is pushed into the ceiling. Silence is returned untouched: there is no level to set.
     """
 
-    with wave.open(io.BytesIO(wav_bytes)) as handle:
-        if handle.getsampwidth() != 2 or handle.getnchannels() != 1:
-            # Only the 16-bit mono case is understood here; anything else is passed through
-            # rather than corrupted by a gain applied to the wrong sample layout.
-            return wav_bytes
-        rate = handle.getframerate()
-        frames = handle.readframes(handle.getnframes())
+    try:
+        with wave.open(io.BytesIO(wav_bytes)) as handle:
+            if handle.getsampwidth() != 2 or handle.getnchannels() != 1:
+                # Only the 16-bit mono case is understood here; anything else is passed through
+                # rather than corrupted by a gain applied to the wrong sample layout.
+                return wav_bytes
+            rate = handle.getframerate()
+            frames = handle.readframes(handle.getnframes())
+    except (wave.Error, EOFError):
+        # Audio this cannot parse is audio it has no business rewriting. A truncated or
+        # half-written file in the pre-rendered cache would otherwise raise here and take a
+        # prompt down mid-intake, when the honest thing is to play whatever bytes exist and let
+        # the patient hear a short prompt rather than silence.
+        return wav_bytes
 
     samples = array.array("h")
     samples.frombytes(frames)
