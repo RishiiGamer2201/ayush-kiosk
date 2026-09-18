@@ -1,16 +1,17 @@
 # MediKiosk audio endpoints.
 #
-# PulseAudio is socket-activated on this board: the daemon exits when idle and is respawned on
-# demand, so anything loaded into a running instance disappears with it. A systemd unit cannot fix
-# that - it was tried, and BindsTo=pulseaudio.service stopped the unit outright because that
-# service is never 'active' under socket activation. Configuration is the right place: this file
-# is read on every start, so the endpoints exist whenever PulseAudio does.
+# PulseAudio is socket-activated here: the daemon exits when idle and takes every loaded module
+# with it, so anything loaded by hand disappears. This file is read on every start, and
+# daemon.conf keeps the daemon from exiting in the first place.
 .include /etc/pulse/default.pa
 
-# Echo cancellation, with the kiosk's own names. The masters are left unset so PulseAudio picks the
-# current default devices - the USB speaker and the camera module's microphone - because their
-# profile names change across restarts (.stereo-fallback and .analog-stereo have both been seen).
-load-module module-echo-cancel aec_method=webrtc source_name=medikiosk_mic sink_name=medikiosk_speaker aec_args="extended_filter=1 noise_suppression=1 high_pass_filter=1 analog_gain_control=0 digital_gain_control=1"
+# The masters are pinned. Leaving them unset made echo-cancel bind to the on-board codec instead
+# of the USB hardware, and prompts went out the 3.5 mm jack with nothing plugged into it - a kiosk
+# that looked healthy and made no sound. The profile suffix has been seen as both .analog-stereo
+# and .stereo-fallback across restarts, so both spellings are attempted and only one will load.
+.nofail
+load-module module-echo-cancel aec_method=webrtc source_master=alsa_input.usb-Arducam_Technology_Co.__Ltd._Arducam_8mp_SN0001-02.analog-stereo sink_master=alsa_output.usb-Jieli_Technology_UACDemoV1.0_4150344C36313516-00.analog-stereo source_name=medikiosk_mic sink_name=medikiosk_speaker aec_args="extended_filter=1 noise_suppression=1 high_pass_filter=1 analog_gain_control=0 digital_gain_control=1"
+load-module module-echo-cancel aec_method=webrtc source_master=alsa_input.usb-Arducam_Technology_Co.__Ltd._Arducam_8mp_SN0001-02.stereo-fallback sink_master=alsa_output.usb-Jieli_Technology_UACDemoV1.0_4150344C36313516-00.analog-stereo source_name=medikiosk_mic sink_name=medikiosk_speaker aec_args="extended_filter=1 noise_suppression=1 high_pass_filter=1 analog_gain_control=0 digital_gain_control=1"
 
 set-default-source medikiosk_mic
 set-default-sink medikiosk_speaker
