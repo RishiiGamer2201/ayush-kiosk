@@ -154,8 +154,12 @@ class _TactileButtonState extends State<TactileButton> {
                               letterSpacing: -0.2,
                             ),
                             textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            // The FittedBox above already guarantees the label cannot overflow:
+                            // it shrinks to fit. Ellipsis on top of that only threw the text
+                            // away - "Measure heart rate" reached the tablet as "measure hea..."
+                            // in every language whose word for it is long.
+                            maxLines: 2,
+                            overflow: TextOverflow.visible,
                           ),
                         if (widget.subtitle != null) ...[
                           const SizedBox(height: 2),
@@ -167,8 +171,8 @@ class _TactileButtonState extends State<TactileButton> {
                               color: fg.withAlpha(200),
                             ),
                             textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
+                            overflow: TextOverflow.visible,
                           ),
                         ],
                       ],
