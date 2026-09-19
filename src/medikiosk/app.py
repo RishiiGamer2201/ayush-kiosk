@@ -47,6 +47,7 @@ from medikiosk.edge.vad import FRAME_BYTES, SileroVAD, SpeechSegmenter
 from medikiosk.kiosk import extraction, handwriting, hospital_sync, slip
 from medikiosk.kiosk.abha import VisitRecords
 from medikiosk.kiosk.flow import KioskFlow, Stage
+from medikiosk.kiosk.i18n import t as kiosk_text
 from medikiosk.kiosk.protocol import FlowAction, SessionGuard
 from medikiosk.kiosk.queue import QueueStore, load_specialties
 from medikiosk.kiosk.staff_auth import COOKIE, StaffAuth, StaffSession
@@ -1875,7 +1876,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     outcome = (
                         answer["answer"]
                         if answer["status"] == "answered"
-                        else ("उत्तर नहीं दिया" if flow.language == "hi" else "not established")
+                        else kiosk_text(f"status_{answer['status']}", flow.language)
                     )
                     spoken.append(f"{index}. {answer['question']}. {outcome}")
                 queue_speech(". ".join(spoken), flow.language)

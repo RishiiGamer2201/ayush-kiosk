@@ -101,7 +101,7 @@ class ReportScreen extends StatelessWidget {
                   const SizedBox(width: 10),
                   if (profile.age != null)
                     Text(
-                      '${profile.age} Y • ${profile.gender}',
+                      '${profile.age} Y • ${_genderWord()}',
                       style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.bold),
                     ),
                   const Spacer(),
@@ -342,6 +342,14 @@ class ReportScreen extends StatelessWidget {
       ),
     );
   }
+
+  /// Gender is stored canonically in English; the patient reads it in their own language.
+  String _genderWord() => switch (profile.gender.toLowerCase()) {
+        'male' => tr('male', language),
+        'female' => tr('female', language),
+        'other' => tr('other_gender', language),
+        _ => profile.gender,
+      };
 
   Map<String, dynamic> get _vitals =>
       (reportData?['vitals'] as Map?)?.cast<String, dynamic>() ?? const {};

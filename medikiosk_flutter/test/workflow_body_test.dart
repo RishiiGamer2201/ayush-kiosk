@@ -116,7 +116,8 @@ void main() {
     await render(tester, client);
     await tester.tap(find.text('Edit answer 1'));
     expect(client.sent, [['edit', 'registration.age']]);
-    expect(find.text('unresolved'), findsOneWidget);
+    // The status in words the patient reads, not the record's own vocabulary.
+    expect(find.text('not answered'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     client.dispose();
   });

@@ -835,6 +835,25 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     });
   }
 
+  /// The answer as the patient would say it. Gender is stored canonically in English and a
+  /// Tamil patient should not read "Male" back on their own review.
+  String _reviewAnswer(Map<String, dynamic> entry) {
+    final answer = '${entry['answer']}';
+    if (entry['id'] == 'registration.gender') {
+      final key = switch (answer.toLowerCase()) {
+        'male' => 'male',
+        'female' => 'female',
+        'other' => 'other_gender',
+        _ => null,
+      };
+      if (key != null) return tr(key, client.language);
+    }
+    // A tapped tick or cross is stored as "yes"/"no"; read it back in the patient's words.
+    if (answer.toLowerCase() == 'yes') return tr('yes', client.language);
+    if (answer.toLowerCase() == 'no') return tr('no', client.language);
+    return answer;
+  }
+
   Widget button(String label, String action, [dynamic value]) => Padding(
     padding: const EdgeInsets.all(4),
     child: TactileButton(
@@ -1507,7 +1526,11 @@ class _WorkflowBodyState extends State<WorkflowBody> {
       for (final entry in review.indexed)
         Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('${entry.$1 + 1}. ${entry.$2['question']}'),
-          Text(entry.$2['status'] == 'answered' ? '${entry.$2['answer']}' : '${entry.$2['status']}'),
+          Text(entry.$2['status'] == 'answered'
+              ? _reviewAnswer(entry.$2)
+              // A reading the camera did not get is "not measured", not "not answered".
+              : tr(entry.$2['method'] == 'camera' ? 'vitals_not_taken' : 'status_${entry.$2['status']}',
+                  client.language)),
           if (entry.$2['editable'] != false)
             button('${tr('edit_answer', client.language)} ${entry.$1 + 1}', 'edit', entry.$2['id']),
         ])),
