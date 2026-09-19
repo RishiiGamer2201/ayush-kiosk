@@ -132,6 +132,9 @@ SYMPTOMS: dict[str, tuple[str, ...]] = {
     ),
     "speech_difficulty": ("speech", "speak", "slur", "bol", "बोल", "जुबान", "आवाज़"),
     "pregnancy_possible": BODY["pregnan"],
+    "yellow_eyes": ("yellow", "jaundice", "peel", "पील", "पीलिया", "kamla", "कामला"),
+    "dark_urine": ("urine", "peshab", "pesab", "पेशाब", "मूत्र", "dark", "gehra", "गहरा"),
+    "appetite_loss": ("appetite", "bhookh", "bhukh", "भूख", "hunger", "khana", "खाना"),
 }
 
 PLACEHOLDERS = {

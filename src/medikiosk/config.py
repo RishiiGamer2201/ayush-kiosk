@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     question_set: Literal["general", "jaundice_demo"] = "general"
     openai_api_key: str | None = Field(default=None, repr=False)
     openai_model: str = "gpt-5.6-terra"
+    # Gemini on Vertex AI, in the same project and region as the intake API's own reader. The
+    # kiosk uses it in place of the on-board Ollama model when clinical_llm_provider says so; a
+    # service-account key file (0600, outside the kiosk tree) rather than an API key, because
+    # Vertex is what the hospital has already agreed to and a developer API key is a second story.
+    vertex_project: str | None = None
+    vertex_location: str = "asia-south1"
+    vertex_credentials: Path | None = Path("~/.config/medikiosk/vertex_sa.json")
+    gemini_model: str = "gemini-3.5-flash"
     sarvam_api_key: str | None = Field(default=None, repr=False)
     sarvam_stt_language: str = "auto"
     sarvam_tts_language: str = "hi-IN"
@@ -102,6 +110,10 @@ class Settings(BaseSettings):
     adaptive_questioning: bool = False
     questioning_content_dir: Path = Path("clinical/questioning")
     clinical_llm_enabled: bool = True
+    # "ollama" is the on-board model and needs no network. "vertex" sends each utterance to
+    # Gemini in the project's own region and needs vertex_project and the credentials file. An
+    # explicit choice, not something that happens because a key is lying around.
+    clinical_llm_provider: Literal["ollama", "vertex"] = "ollama"
     clinical_llm_model: str = "gemma3:1b"
     ollama_url: str = "http://127.0.0.1:11434"
     # Handwritten documents. PP-OCRv5 reads printed Devanagari well and handwriting badly, so a
@@ -128,6 +140,10 @@ class Settings(BaseSettings):
     @property
     def openai_configured(self) -> bool:
         return self.deployment_profile == "online" and bool(self.openai_api_key)
+
+    @property
+    def gemini_configured(self) -> bool:
+        return self.clinical_llm_provider == "vertex" and bool(self.vertex_project)
 
     @property
     def sarvam_configured(self) -> bool:

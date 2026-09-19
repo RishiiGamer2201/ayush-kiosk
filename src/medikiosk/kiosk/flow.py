@@ -20,6 +20,7 @@ app next) can render the right control without knowing anything about clinical l
 from __future__ import annotations
 
 import copy
+from collections.abc import Callable
 from enum import Enum
 
 from medikiosk.kiosk import ayurveda, prakriti
@@ -93,10 +94,54 @@ SCREEN_TEXT: dict[str, dict[str, str]] = {
         "bn": "আপনার আভা কার্ড ক্যামেরায় দেখান, বা আভা নম্বর লিখুন। আপনি এড়িয়েও যেতে পারেন।",
         "mr": "तुमचे आभा कार्ड कॅमेऱ्याला दाखवा, किंवा आभा क्रमांक टाका. तुम्ही वगळूही शकता.",
         "te": "మీ ఆభా కార్డును కెమెరాకు చూపండి, లేదా ఆభా నంబర్ నమోదు చేయండి. మీరు దాటవేయవచ్చు.",
-        "ta": "உங்கள் ஆபா அட்டையை கேமராவில் காட்டுங்கள், அல்லது ஆபா எண்ணை உள்ளிடுங்கள். தவிர்க்கவும் செய்யலாம்.",
+        "ta": (
+            "உங்கள் ஆபா அட்டையை கேமராவில் காட்டுங்கள், அல்லது ஆபா "
+            "எண்ணை உள்ளிடுங்கள். தவிர்க்கவும் செய்யலாம்."
+        ),
         "gu": "તમારું આભા કાર્ડ કૅમેરાને બતાવો, અથવા આભા નંબર દાખલ કરો. તમે છોડી પણ શકો છો.",
-        "kn": "ನಿಮ್ಮ ಆಭಾ ಕಾರ್ಡ್ ಅನ್ನು ಕ್ಯಾಮೆರಾಗೆ ತೋರಿಸಿ, ಅಥವಾ ಆಭಾ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ. ನೀವು ಬಿಟ್ಟುಬಿಡಬಹುದು.",
+        "kn": (
+            "ನಿಮ್ಮ ಆಭಾ ಕಾರ್ಡ್ ಅನ್ನು ಕ್ಯಾಮೆರಾಗೆ ತೋರಿಸಿ, ಅಥವಾ ಆಭಾ "
+            "ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ. ನೀವು ಬಿಟ್ಟುಬಿಡಬಹುದು."
+        ),
         "pa": "ਆਪਣਾ ਆਭਾ ਕਾਰਡ ਕੈਮਰੇ ਨੂੰ ਦਿਖਾਓ, ਜਾਂ ਆਭਾ ਨੰਬਰ ਭਰੋ। ਤੁਸੀਂ ਛੱਡ ਵੀ ਸਕਦੇ ਹੋ।",
+    },
+    "abha_required": {
+        "en": (
+            "Show your ABHA card to the camera, or enter your ABHA number or "
+            "address. It is used to find your earlier visits here."
+        ),
+        "hi": (
+            "अपना आभा कार्ड कैमरे को दिखाएँ, या आभा नंबर या पता डालें। "
+            "इससे यहाँ आपकी पिछली विज़िट खोजी जाती हैं।"
+        ),
+        "bn": (
+            "আপনার আভা কার্ড ক্যামেরায় দেখান, বা আভা নম্বর বা ঠিকানা "
+            "লিখুন। এতে এখানে আপনার আগের ভিজিট খোঁজা হয়।"
+        ),
+        "mr": (
+            "तुमचे आभा कार्ड कॅमेऱ्याला दाखवा, किंवा आभा क्रमांक किंवा पत्ता "
+            "टाका. यावरून येथील तुमच्या आधीच्या भेटी शोधल्या जातात."
+        ),
+        "te": (
+            "మీ ఆభా కార్డును కెమెరాకు చూపండి, లేదా ఆభా నంబర్ లేదా చిరునామా నమోదు "
+            "చేయండి. దీనితో ఇక్కడ మీ మునుపటి సందర్శనలు వెతకబడతాయి."
+        ),
+        "ta": (
+            "உங்கள் ஆபா அட்டையை கேமராவில் காட்டுங்கள், அல்லது ஆபா எண் அல்லது முகவரியை "
+            "உள்ளிடுங்கள். இதன் மூலம் இங்கு உங்கள் முந்தைய வருகைகள் தேடப்படுகின்றன."
+        ),
+        "gu": (
+            "તમારું આભા કાર્ડ કૅમેરાને બતાવો, અથવા આભા નંબર કે સરનામું દાખલ "
+            "કરો. તેનાથી અહીં તમારી અગાઉની મુલાકાતો શોધાય છે."
+        ),
+        "kn": (
+            "ನಿಮ್ಮ ಆಭಾ ಕಾರ್ಡ್ ಅನ್ನು ಕ್ಯಾಮೆರಾಗೆ ತೋರಿಸಿ, ಅಥವಾ ಆಭಾ ಸಂಖ್ಯೆ ಅಥವಾ ವಿಳಾಸ "
+            "ನಮೂದಿಸಿ. ಇದರಿಂದ ಇಲ್ಲಿ ನಿಮ್ಮ ಹಿಂದಿನ ಭೇಟಿಗಳನ್ನು ಹುಡುಕಲಾಗುತ್ತದೆ."
+        ),
+        "pa": (
+            "ਆਪਣਾ ਆਭਾ ਕਾਰਡ ਕੈਮਰੇ ਨੂੰ ਦਿਖਾਓ, ਜਾਂ ਆਭਾ ਨੰਬਰ ਜਾਂ ਪਤਾ ਭਰੋ। ਇਸ ਨਾਲ "
+            "ਇੱਥੇ ਤੁਹਾਡੀਆਂ ਪਿਛਲੀਆਂ ਮੁਲਾਕਾਤਾਂ ਖੋਜੀਆਂ ਜਾਂਦੀਆਂ ਹਨ।"
+        ),
     },
     "abha_found": {
         "en": "Welcome back. Your previous visits have been loaded.",
@@ -156,10 +201,16 @@ SCREEN_TEXT: dict[str, dict[str, str]] = {
     "documents": {
         "en": "Place any prescription or report under the camera, then press Scan. Or skip.",
         "hi": "कोई पर्चा या रिपोर्ट कैमरे के नीचे रखें, फिर स्कैन दबाएँ। या छोड़ दें।",
-        "bn": "কোনো প্রেসক্রিপশন বা রিপোর্ট ক্যামেরার নিচে রাখুন, তারপর স্ক্যান চাপুন। বা এড়িয়ে যান।",
+        "bn": (
+            "কোনো প্রেসক্রিপশন বা রিপোর্ট ক্যামেরার নিচে রাখুন, "
+            "তারপর স্ক্যান চাপুন। বা এড়িয়ে যান।"
+        ),
         "mr": "कोणतीही चिठ्ठी किंवा अहवाल कॅमेऱ्याखाली ठेवा, मग स्कॅन दाबा. किंवा वगळा.",
         "te": "ఏదైనా చీటీ లేదా రిపోర్టును కెమెరా కింద ఉంచి, స్కాన్ నొక్కండి. లేదా దాటవేయండి.",
-        "ta": "மருந்துச் சீட்டு அல்லது அறிக்கையை கேமராவின் கீழ் வைத்து, ஸ்கேன் அழுத்தவும். அல்லது தவிர்க்கவும்.",
+        "ta": (
+            "மருந்துச் சீட்டு அல்லது அறிக்கையை கேமராவின் கீழ் வைத்து, "
+            "ஸ்கேன் அழுத்தவும். அல்லது தவிர்க்கவும்."
+        ),
         "gu": "કોઈ પણ ચિઠ્ઠી કે રિપોર્ટ કૅમેરા નીચે મૂકો, પછી સ્કૅન દબાવો. અથવા છોડી દો.",
         "kn": "ಯಾವುದೇ ಚೀಟಿ ಅಥವಾ ವರದಿಯನ್ನು ಕ್ಯಾಮೆರಾದ ಕೆಳಗೆ ಇಟ್ಟು, ಸ್ಕ್ಯಾನ್ ಒತ್ತಿ. ಅಥವಾ ಬಿಟ್ಟುಬಿಡಿ.",
         "pa": "ਕੋਈ ਵੀ ਪਰਚੀ ਜਾਂ ਰਿਪੋਰਟ ਕੈਮਰੇ ਹੇਠਾਂ ਰੱਖੋ, ਫਿਰ ਸਕੈਨ ਦਬਾਓ। ਜਾਂ ਛੱਡ ਦਿਓ।",
@@ -177,14 +228,38 @@ SCREEN_TEXT: dict[str, dict[str, str]] = {
     },
     "emergency": {
         "en": "What you described needs immediate attention. Please wait, staff are being called.",
-        "hi": "आपने जो बताया उसके लिए तुरंत जाँच ज़रूरी है। कृपया रुकें, स्टाफ़ को बुलाया जा रहा है।",
-        "bn": "আপনি যা বললেন তার জন্য এখনই চিকিৎসা দরকার। অনুগ্রহ করে অপেক্ষা করুন, কর্মীদের ডাকা হচ্ছে।",
-        "mr": "तुम्ही सांगितलेल्यासाठी तातडीने तपासणी आवश्यक आहे. कृपया थांबा, कर्मचाऱ्यांना बोलावले जात आहे.",
-        "te": "మీరు చెప్పినదానికి వెంటనే వైద్యం అవసరం. దయచేసి వేచి ఉండండి, సిబ్బందిని పిలుస్తున్నాము.",
-        "ta": "நீங்கள் கூறியதற்கு உடனடி கவனிப்பு தேவை. தயவுசெய்து காத்திருங்கள், ஊழியர்கள் அழைக்கப்படுகிறார்கள்.",
-        "gu": "તમે જે કહ્યું તેના માટે તાત્કાલિક તપાસ જરૂરી છે. કૃપા કરીને રાહ જુઓ, સ્ટાફને બોલાવવામાં આવી રહ્યો છે.",
-        "kn": "ನೀವು ಹೇಳಿದ್ದಕ್ಕೆ ತಕ್ಷಣ ಚಿಕಿತ್ಸೆ ಅಗತ್ಯ. ದಯವಿಟ್ಟು ಕಾಯಿರಿ, ಸಿಬ್ಬಂದಿಯನ್ನು ಕರೆಯಲಾಗುತ್ತಿದೆ.",
-        "pa": "ਤੁਸੀਂ ਜੋ ਦੱਸਿਆ ਉਸ ਲਈ ਤੁਰੰਤ ਜਾਂਚ ਜ਼ਰੂਰੀ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ ਉਡੀਕੋ, ਸਟਾਫ਼ ਨੂੰ ਬੁਲਾਇਆ ਜਾ ਰਿਹਾ ਹੈ।",
+        "hi": (
+            "आपने जो बताया उसके लिए तुरंत जाँच ज़रूरी है। कृपया "
+            "रुकें, स्टाफ़ को बुलाया जा रहा है।"
+        ),
+        "bn": (
+            "আপনি যা বললেন তার জন্য এখনই চিকিৎসা দরকার। অনুগ্রহ "
+            "করে অপেক্ষা করুন, কর্মীদের ডাকা হচ্ছে।"
+        ),
+        "mr": (
+            "तुम्ही सांगितलेल्यासाठी तातडीने तपासणी आवश्यक आहे. कृपया "
+            "थांबा, कर्मचाऱ्यांना बोलावले जात आहे."
+        ),
+        "te": (
+            "మీరు చెప్పినదానికి వెంటనే వైద్యం అవసరం. దయచేసి వేచి "
+            "ఉండండి, సిబ్బందిని పిలుస్తున్నాము."
+        ),
+        "ta": (
+            "நீங்கள் கூறியதற்கு உடனடி கவனிப்பு தேவை. தயவுசெய்து "
+            "காத்திருங்கள், ஊழியர்கள் அழைக்கப்படுகிறார்கள்."
+        ),
+        "gu": (
+            "તમે જે કહ્યું તેના માટે તાત્કાલિક તપાસ જરૂરી છે. કૃપા કરીને "
+            "રાહ જુઓ, સ્ટાફને બોલાવવામાં આવી રહ્યો છે."
+        ),
+        "kn": (
+            "ನೀವು ಹೇಳಿದ್ದಕ್ಕೆ ತಕ್ಷಣ ಚಿಕಿತ್ಸೆ ಅಗತ್ಯ. ದಯವಿಟ್ಟು "
+            "ಕಾಯಿರಿ, ಸಿಬ್ಬಂದಿಯನ್ನು ಕರೆಯಲಾಗುತ್ತಿದೆ."
+        ),
+        "pa": (
+            "ਤੁਸੀਂ ਜੋ ਦੱਸਿਆ ਉਸ ਲਈ ਤੁਰੰਤ ਜਾਂਚ ਜ਼ਰੂਰੀ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ "
+            "ਉਡੀਕੋ, ਸਟਾਫ਼ ਨੂੰ ਬੁਲਾਇਆ ਜਾ ਰਿਹਾ ਹੈ।"
+        ),
     },
     "idle": {
         "en": "MediKiosk is ready. Touch the screen to begin.",
@@ -203,9 +278,15 @@ SCREEN_TEXT: dict[str, dict[str, str]] = {
         "bn": "আপনি কি আগে কখনও, কোনো চিকিৎসাকেন্দ্রে, আয়ুষ প্রকৃতি প্রশ্নমালা পূরণ করেছেন?",
         "mr": "तुम्ही याआधी कधी, कोणत्याही रुग्णालयात, आयुष प्रकृती प्रश्नावली भरली आहे का?",
         "te": "మీరు ఇంతకు ముందు ఎప్పుడైనా, ఏదైనా ఆసుపత్రిలో, ఆయుష్ ప్రకృతి ప్రశ్నావళిని పూరించారా?",
-        "ta": "நீங்கள் இதற்கு முன், ஏதேனும் மருத்துவமனையில், ஆயுஷ் பிரகிருதி வினாத்தாளை நிரப்பியுள்ளீர்களா?",
+        "ta": (
+            "நீங்கள் இதற்கு முன், ஏதேனும் மருத்துவமனையில், ஆயுஷ் "
+            "பிரகிருதி வினாத்தாளை நிரப்பியுள்ளீர்களா?"
+        ),
         "gu": "શું તમે પહેલાં ક્યારેય, કોઈ પણ દવાખાનામાં, આયુષ પ્રકૃતિ પ્રશ્નાવલી ભરી છે?",
-        "kn": "ನೀವು ಈ ಹಿಂದೆ ಎಂದಾದರೂ, ಯಾವುದೇ ಆಸ್ಪತ್ರೆಯಲ್ಲಿ, ಆಯುಷ್ ಪ್ರಕೃತಿ ಪ್ರಶ್ನಾವಳಿಯನ್ನು ಭರ್ತಿ ಮಾಡಿದ್ದೀರಾ?",
+        "kn": (
+            "ನೀವು ಈ ಹಿಂದೆ ಎಂದಾದರೂ, ಯಾವುದೇ ಆಸ್ಪತ್ರೆಯಲ್ಲಿ, ಆಯುಷ್ "
+            "ಪ್ರಕೃತಿ ಪ್ರಶ್ನಾವಳಿಯನ್ನು ಭರ್ತಿ ಮಾಡಿದ್ದೀರಾ?"
+        ),
         "pa": "ਕੀ ਤੁਸੀਂ ਪਹਿਲਾਂ ਕਦੇ, ਕਿਸੇ ਵੀ ਹਸਪਤਾਲ ਵਿੱਚ, ਆਯੁਸ਼ ਪ੍ਰਕ੍ਰਿਤੀ ਪ੍ਰਸ਼ਨਾਵਲੀ ਭਰੀ ਹੈ?",
     },
     "prakriti_yes": {
@@ -256,7 +337,10 @@ SCREEN_TEXT: dict[str, dict[str, str]] = {
         "bn": "আপনার প্রকৃতি আগে থেকেই নথিভুক্ত আছে। এই প্রশ্নগুলি আর জিজ্ঞাসা করা হবে না।",
         "mr": "तुमची प्रकृती आधीच नोंदवलेली आहे. हे प्रश्न पुन्हा विचारले जाणार नाहीत.",
         "te": "మీ ప్రకృతి ఇప్పటికే నమోదైంది. ఈ ప్రశ్నలు మళ్ళీ అడగబడవు.",
-        "ta": "உங்கள் பிரகிருதி ஏற்கனவே பதிவு செய்யப்பட்டுள்ளது. இந்தக் கேள்விகள் மீண்டும் கேட்கப்படாது.",
+        "ta": (
+            "உங்கள் பிரகிருதி ஏற்கனவே பதிவு செய்யப்பட்டுள்ளது. "
+            "இந்தக் கேள்விகள் மீண்டும் கேட்கப்படாது."
+        ),
         "gu": "તમારી પ્રકૃતિ પહેલેથી નોંધાયેલી છે. આ પ્રશ્નો ફરી પૂછવામાં આવશે નહીં.",
         "kn": "ನಿಮ್ಮ ಪ್ರಕೃತಿ ಈಗಾಗಲೇ ದಾಖಲಾಗಿದೆ. ಈ ಪ್ರಶ್ನೆಗಳನ್ನು ಮತ್ತೆ ಕೇಳಲಾಗುವುದಿಲ್ಲ.",
         "pa": "ਤੁਹਾਡੀ ਪ੍ਰਕ੍ਰਿਤੀ ਪਹਿਲਾਂ ਹੀ ਦਰਜ ਹੈ। ਇਹ ਸਵਾਲ ਦੁਬਾਰਾ ਨਹੀਂ ਪੁੱਛੇ ਜਾਣਗੇ।",
@@ -392,11 +476,14 @@ class KioskFlow:
         prefers_ayush: bool = False,
         demo_flow: bool = False,
         prakriti_on_file: bool = False,
+        visit_history: Callable[[str], list[dict]] | None = None,
     ) -> None:
-        # The demo order, and whether this patient's ABHA already carries a prakriti. Both are
-        # decided by the caller; the flow only follows them.
+        # The demo order, and whether this patient's ABHA already carries a prakriti. The caller
+        # may say so outright, or hand over the lookup and have it answered when the patient
+        # gives their number - the only moment the flow knows which patient this is.
         self.demo_flow = demo_flow
         self.prakriti_on_file = prakriti_on_file
+        self.visit_history = visit_history
         self.stage = Stage.LANGUAGE
         self.language: str | None = None
         self.abha_number: str | None = None
@@ -440,16 +527,19 @@ class KioskFlow:
         self.vitals_busy = False
 
     def snapshot(self) -> dict:
-        data = copy.deepcopy(vars(self))
+        # The lookup is the caller's, not the patient's: it is re-attached on restore.
+        data = copy.deepcopy({k: v for k, v in vars(self).items() if k != "visit_history"})
         data["stage"] = self.stage.value
         data["ledger"] = self.ledger.model_dump(mode="json")
         data["consent"] = self.consent.model_dump(mode="json")
         return data
 
     @classmethod
-    def from_snapshot(cls, data: dict) -> KioskFlow:
-        flow = cls()
-        allowed = set(vars(flow))
+    def from_snapshot(
+        cls, data: dict, visit_history: Callable[[str], list[dict]] | None = None
+    ) -> KioskFlow:
+        flow = cls(visit_history=visit_history)
+        allowed = set(vars(flow)) - {"visit_history"}
         if set(data) - allowed:
             raise ValueError("Unknown workflow fields")
         for key, value in copy.deepcopy(data).items():
@@ -477,6 +567,14 @@ class KioskFlow:
         """
 
         self.vitals_busy = False
+        # A clinician's sanity bounds on top of the signal's own confidence. The maths vouched
+        # for 6 breaths a minute from an empty chair; a resting adult is 8-40, and a pulse the
+        # camera can read is 40-180. Outside those a reading is filed as not obtained.
+        # ponytail: fixed adult bounds; make them age-aware if children are measured here.
+        confident = confident and bpm is not None and 40 <= bpm <= 180
+        breath_confident = (
+            breath_confident and breaths_per_min is not None and 8 <= breaths_per_min <= 40
+        )
         self.vitals = {
             "bpm": bpm,
             "confident": confident,
@@ -487,7 +585,8 @@ class KioskFlow:
         measured = bpm is not None and confident
         self.record_answer(
             "vitals.heart_rate",
-            t("vitals", self.language),
+            # The reading's name, not the instruction it was taken under.
+            t("vitals_result", self.language),
             f"{bpm:.0f} bpm" if measured else "",
             "answered" if measured else "unresolved",
             field="heart_rate_bpm",
@@ -732,8 +831,22 @@ class KioskFlow:
             elif action == "answer":
                 number = normalise(str(value))
                 if number is None:
-                    raise ValueError("A valid ABHA number or skip is required")
+                    raise ValueError(
+                        "A 14-digit ABHA number or an ABHA address like name@abdm is required"
+                    )
+                # Holds the number or the address, whichever the patient gave; both are one key.
                 self.abha_number = number
+                self._look_up(number)
+                if self.demo_flow:
+                    # The screen said what the ABHA is for. Giving it is the permission to look
+                    # up earlier visits here, recorded against that wording.
+                    self.consent.record(
+                        "history_linkage",
+                        "granted",
+                        self.language,
+                        self.on_behalf_of or "self",
+                        method,
+                    )
             else:
                 raise ValueError("Enter or skip identity")
             # No service-choice screen in the demo order: the problem is what the kiosk is for.
@@ -885,6 +998,8 @@ class KioskFlow:
                 target = next((a for a in live if a["id"] == value), None)
                 if target is None:
                     raise ValueError("Choose a review answer")
+                if target.get("method") == "camera":
+                    raise ValueError("A camera reading cannot be edited by hand")
                 self.edit_target = target["id"]
                 if self.edit_target.startswith("registration."):
                     self.registration_index = ("name", "age", "gender").index(
@@ -982,9 +1097,15 @@ class KioskFlow:
                 Stage.INTERVIEW: ["answer", "unknown", "refuse", "cancel"],
                 Stage.AYURVEDA: ["unknown", "refuse"],
                 Stage.PRAKRITI: ["unknown", "refuse"],
-                Stage.DOCUMENTS: ["keep", "retake", "discard"]
-                if self.document_preview
-                else ["scan", "done"],
+                # "done" stays on the list with a preview showing. Without it the patient was
+                # stuck: they scanned, and the only offers left were about the scan.
+                Stage.DOCUMENTS: (
+                    ["keep", "retake", "discard", "done", "skip"]
+                    if self.document_preview and self.demo_flow
+                    else ["keep", "retake", "discard"]
+                    if self.document_preview
+                    else ["scan", "done", "skip"]
+                ),
                 Stage.REVIEW: ["edit", "confirm"],
                 Stage.FINALIZING: ["confirm"],
             }.get(self.stage, [])
@@ -1138,7 +1259,12 @@ class KioskFlow:
                 headline = " · ".join(parts) if parts else t("vitals_failed", self.language)
             return {**base, "headline": headline, "vitals": reading}
         if self.stage is Stage.REVIEW:
-            live = [a for a in self.answers if not a.get("superseded")]
+            live = [
+                # A camera reading is not an answer to change by hand.
+                {**a, "editable": a.get("method") != "camera"}
+                for a in self.answers
+                if not a.get("superseded")
+            ]
             return {
                 **base,
                 "headline": t("review", self.language),
@@ -1189,7 +1315,11 @@ class KioskFlow:
             return {
                 "stage": self.stage.value,
                 "input": "camera_or_text",
-                "headline": text("abha", self.language),
+                # No "you may also skip" when skip is refused. The allowed actions say the
+                # same thing to the tablet, and the headline has to agree with them.
+                "headline": text(
+                    "abha_required" if self.demo_flow else "abha", self.language
+                ),
                 "skip_label": text("skip", self.language),
             }
 
@@ -1280,6 +1410,11 @@ class KioskFlow:
                 "scan_label": text("scan", self.language),
                 "skip_label": text("skip", self.language),
                 "scanned": len(self.documents),
+                # What each kept page said, so the list on the tablet shows the scan happened
+                # even when the camera read nothing off it.
+                "documents": [
+                    {"lines": list(document.get("lines") or [])} for document in self.documents
+                ],
             }
 
         if self.stage is Stage.EMERGENCY:
@@ -1309,8 +1444,26 @@ class KioskFlow:
         """Record the scanned or typed ABHA number. None means the patient skipped."""
 
         self.abha_number = number
-        self.past_visits = history or []
-        for visit in self.past_visits:
+        self._remember(history or [])
+        self.advance()
+
+    def _look_up(self, number: str) -> None:
+        """Earlier visits under this ABHA, if the caller gave the flow a way to find them."""
+
+        if self.visit_history is None:
+            return
+        try:
+            self._remember(self.visit_history(number))
+        except Exception:  # noqa: BLE001 - an unreadable history is not a reason to refuse intake
+            return
+
+    def _remember(self, history: list[dict]) -> None:
+        self.past_visits = history
+        # ponytail: the lookup returns the most recent visits only; a prakriti recorded further
+        # back than that is asked again. Widen the lookup's limit if that starts to happen.
+        if any(visit.get("prakriti") for visit in history):
+            self.prakriti_on_file = True
+        for visit in history:
             if visit.get("complaint"):
                 self.ledger.record(
                     "previous_complaint",
@@ -1318,7 +1471,6 @@ class KioskFlow:
                     Source.ABHA,
                     evidence=f"visit recorded {visit.get('recorded_at', 'previously')}",
                 )
-        self.advance()
 
     def set_who(self, answer: str) -> None:
         self.on_behalf_of = None if answer == "self" else "other"

@@ -28,13 +28,28 @@ from pathlib import Path
 from cryptography.fernet import Fernet
 
 ABHA_DIGITS = re.compile(r"\d{14}")
+# name@abdm on a live card, name@sbx in the sandbox. Letters, digits, dot, underscore, hyphen.
+ABHA_ADDRESS = re.compile(r"^[a-z0-9][a-z0-9._-]{2,62}@[a-z]{2,10}$")
 
 
 def normalise(raw: str) -> str | None:
-    """A bare 14-digit ABHA number from whatever the patient typed or the card encoded."""
+    """One identity key from whatever the patient gave: the 14-digit number, or the ABHA address.
 
-    digits = re.sub(r"\D", "", raw or "")
+    Either is what is printed on the card, and a patient chooses whichever they can read out or
+    type. Both come back as a canonical string - bare digits, or a lowercased address - so the
+    same patient is the same key on the next visit whichever one they used.
+    """
+
+    text = (raw or "").strip()
+    if "@" in text:
+        address = text.lower().replace(" ", "")
+        return address if ABHA_ADDRESS.match(address) else None
+    digits = re.sub(r"\D", "", text)
     return digits if len(digits) == 14 else None
+
+
+def is_address(identity: str | None) -> bool:
+    return bool(identity) and "@" in identity
 
 
 def from_qr_payload(payload: str) -> str | None:
@@ -45,7 +60,7 @@ def from_qr_payload(payload: str) -> str | None:
     except (ValueError, TypeError):
         match = ABHA_DIGITS.search(re.sub(r"\D", "", payload or ""))
         return match.group(0) if match else None
-    for key in ("hidn", "healthIdNumber", "abhaNumber", "health_id_number"):
+    for key in ("hidn", "healthIdNumber", "abhaNumber", "health_id_number", "phr", "abhaAddress"):
         value = data.get(key) if isinstance(data, dict) else None
         if value and (number := normalise(str(value))):
             return number
@@ -94,7 +109,10 @@ class VisitRecords:
             connection.execute("CREATE INDEX IF NOT EXISTS visits_by_abha ON visits(abha_key)")
 
     def _key(self, abha_number: str) -> str:
-        return hmac.new(self._salt, abha_number.encode("ascii"), hashlib.sha256).hexdigest()
+        # One key per patient however the identity was written: 91-4758-... and 914758... and
+        # an address in any case all land on the same row.
+        canonical = normalise(abha_number) or abha_number
+        return hmac.new(self._salt, canonical.encode("utf-8"), hashlib.sha256).hexdigest()
 
     def save(self, abha_number: str, visit: dict) -> None:
         payload = dict(visit)

@@ -34,7 +34,7 @@ from pydantic import BaseModel, Field
 
 from medikiosk import __version__
 from medikiosk.clinical.heuristic import HeuristicClinicalExtractor
-from medikiosk.clinical.hybrid import HybridClinicalExtractor
+from medikiosk.clinical.hybrid import Extractor, HybridClinicalExtractor
 from medikiosk.clinical.questions import (
     QUESTIONS,
     TemplateQuestionNaturalizer,
@@ -72,10 +72,9 @@ from medikiosk.providers.whisper_provider import WhisperCppSTT
 from medikiosk.session import ClinicalSession
 from medikiosk.storage import EncryptedSessionStore
 
-# sarvamai/openai clients are imported lazily inside the cloud branches below: this device has
-# neither package's API key configured, and the local path (Whisper + Piper/Flite, already
-# verified on this Jetson) is what actually runs. Importing them eagerly would make every local
-# session pay for cloud SDKs it never calls, and sarvamai is not even installed here.
+# sarvamai and google-genai are imported lazily inside the cloud branches below: the local path
+# (Whisper + Piper/Flite, already verified on this Jetson) is what runs without them, and
+# importing them eagerly would make every local session pay for cloud SDKs it never calls.
 
 STATIC_DIR = Path(__file__).with_name("static")
 
@@ -110,25 +109,15 @@ class DemoTurnRequest(BaseModel):
     language: str = "en-IN"
 
 
-def _clinical_session(settings: Settings, llm: LocalLLMClinicalExtractor | None) -> ClinicalSession:
-    if settings.openai_configured:
-        from medikiosk.providers.openai_provider import (
-            OpenAIClinicalExtractor,
-            OpenAIQuestionNaturalizer,
-        )
-
-        extractor: Any = OpenAIClinicalExtractor(
-            settings.openai_api_key or "", settings.openai_model
-        )
-        naturalizer = OpenAIQuestionNaturalizer(
-            settings.openai_api_key or "",
-            settings.openai_model,
-        )
-    else:
-        # llm is None unless it just passed a health check - a stopped/missing Ollama silently
-        # degrades to heuristic-only rather than breaking a demo turn.
-        extractor = HybridClinicalExtractor(HeuristicClinicalExtractor(), llm)
-        naturalizer = TemplateQuestionNaturalizer()
+def _clinical_session(settings: Settings, llm: Extractor | None) -> ClinicalSession:
+    # llm is the on-board Ollama model or Gemini on Vertex, whichever the settings chose, and
+    # None unless it just passed a health check - a stopped/missing model silently degrades to
+    # heuristic-only rather than breaking a turn. Either way it sits behind the heuristic
+    # matcher and is grounded against the transcript; see clinical/hybrid.py.
+    extractor: Any = HybridClinicalExtractor(HeuristicClinicalExtractor(), llm)
+    # The clinician-reviewed wording, unchanged by any model. A question that reads differently
+    # every turn is a question a patient cannot learn.
+    naturalizer = TemplateQuestionNaturalizer()
 
     if settings.adaptive_questioning:
         # Same surface as ClinicalSession, and it runs this same extractor on every transcript,
@@ -140,7 +129,9 @@ def _clinical_session(settings: Settings, llm: LocalLLMClinicalExtractor | None)
             extractor,
             settings.edge_language,
         )
-    return ClinicalSession(extractor=extractor, naturalizer=naturalizer)
+    return ClinicalSession(
+        extractor=extractor, naturalizer=naturalizer, question_set=settings.question_set
+    )
 
 
 # Silence in front of every prompt, because the speaker is asleep between them.
@@ -479,11 +470,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
             tablet = None
 
-    llm_extractor = (
-        LocalLLMClinicalExtractor(active_settings.clinical_llm_model, active_settings.ollama_url)
-        if active_settings.clinical_llm_enabled
-        else None
-    )
+    # Ollama or Gemini; both answer extract() and health().
+    llm_extractor: Any = None
+    if active_settings.clinical_llm_enabled and active_settings.gemini_configured:
+        from medikiosk.providers.gemini_provider import GeminiClinicalExtractor
+
+        llm_extractor = GeminiClinicalExtractor(
+            active_settings.vertex_project or "",
+            active_settings.vertex_location,
+            active_settings.gemini_model,
+            active_settings.vertex_credentials,
+        )
+    elif active_settings.clinical_llm_enabled:
+        llm_extractor = LocalLLMClinicalExtractor(
+            active_settings.clinical_llm_model, active_settings.ollama_url
+        )
 
     def local_speech_ready() -> bool:
         return stt.health()
@@ -826,6 +827,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         audio_queue: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=80)
         send_lock = asyncio.Lock()
         turn_tasks: set[asyncio.Task[Any]] = set()
+        # Work that outlives the turn it started in. Every touch cancels turn_tasks - that is
+        # what stops a stale spoken answer landing on the next question - so the background
+        # measurement cannot live there: the first tap on the registration form was killing it.
+        background_tasks: set[asyncio.Task[Any]] = set()
         stt_task: asyncio.Task[Any] | None = None
         mic_task: asyncio.Task[Any] | None = None
         tts_task: asyncio.Task[Any] | None = None
@@ -845,12 +850,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # The eight-step workflow around the clinical interview. It owns no clinical logic - the
         # state machine, red flags and extractors are unchanged - it only decides which stage the
         # patient is on and what the client should render.
-        def new_flow(abha: str | None = None) -> KioskFlow:
-            """A flow in the configured order, told whether this ABHA already has a prakriti."""
+        def new_flow() -> KioskFlow:
+            """A flow in the configured order, able to look an ABHA up once the patient gives it."""
 
             return KioskFlow(
                 demo_flow=bool(active_settings.demo_flow),
-                prakriti_on_file=_prakriti_on_file(records, abha),
+                visit_history=records.history if records is not None else None,
             )
 
         flow = new_flow()
@@ -1151,6 +1156,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             while not audio_queue.empty():
                 audio_queue.get_nowait()
 
+        def keep_preview() -> None:
+            """File the current preview as a document, with the capture's own bookkeeping."""
+
+            preview = flow.document_preview or {}
+            flow.add_document(
+                preview["lines"],
+                preview.get("seconds"),
+                handwritten=preview.get("handwritten"),
+            )
+            flow.documents[-1].update(
+                {
+                    key: preview.get(key)
+                    for key in ("capture_id", "confidence_note", "outbox_handle")
+                }
+            )
+
         async def handle_action(
             action: str, value: Any = None, question_id: str | None = None, method: str = "touch"
         ) -> None:
@@ -1216,21 +1237,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 await send_screen()
                 return
             if action in {"keep", "discard", "retake"} and flow.stage is Stage.DOCUMENTS:
-                preview = flow.document_preview
                 if action == "keep":
-                    if preview is None:
+                    if flow.document_preview is None:
                         raise ValueError("No preview to keep")
-                    flow.add_document(
-                        preview["lines"],
-                        preview.get("seconds"),
-                        handwritten=preview.get("handwritten"),
-                    )
-                    flow.documents[-1].update(
-                        {
-                            key: preview.get(key)
-                            for key in ("capture_id", "confidence_note", "outbox_handle")
-                        }
-                    )
+                    keep_preview()
                 flow.document_preview = None
                 await send_screen()
                 if action == "retake":
@@ -1250,6 +1260,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     raise ValueError("Unowned document capture")
                 flow.document_preview = copy.deepcopy(result)
                 owned["captures"].pop(capture_id)
+                if flow.demo_flow:
+                    # No keep/retake/discard question in the demo order: what the camera read is
+                    # filed as it arrives and shown in the list, and the patient scans another
+                    # page or moves on. A second scan is never refused for an unanswered question.
+                    keep_preview()
+                    flow.document_preview = None
                 await send_screen()
                 return
             prior_answers = len(flow.answers)
@@ -1347,8 +1363,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     persist()
 
                 task = asyncio.create_task(measure_behind(), name=f"vitals-{session_id}")
-                turn_tasks.add(task)
-                task.add_done_callback(turn_tasks.discard)
+                background_tasks.add(task)
+                task.add_done_callback(background_tasks.discard)
                 # The patient moves on now; the camera keeps working behind them. Without this
                 # they sat on the notice watching a preview that the measurement had already
                 # taken the camera away from.
@@ -2063,11 +2079,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 records.save(
                     flow.abha_number,
                     {
+                        "encounter_id": session_id,
                         "complaint": session.state.complaint,
                         "severity": session.state.severity,
                         "queue": built["routing"]["queue"],
+                        # What the next visit checks before asking sixty-eight questions again.
+                        "prakriti": (
+                            flow.prakriti_record
+                            if (flow.prakriti_record or {}).get("complete")
+                            else None
+                        ),
                     },
-                    encounter_id=session_id,
                 )
             built["completion"] = "saved_local"
             flow.report = built
@@ -2086,7 +2108,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         try:
             if restored is not None:
-                flow = KioskFlow.from_snapshot(restored["flow"])
+                flow = KioskFlow.from_snapshot(
+                    restored["flow"], records.history if records is not None else None
+                )
                 session.state = PatientState.model_validate(restored["state"])
                 guard.restore(restored["guard"])
                 intake_complete = (
@@ -2241,7 +2265,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     await send(
                         {"type": "flow.ack", "action_id": action.action_id, "duplicate": False}
                     )
-                except (ValueError, RuntimeError, OSError, sqlite3.Error):
+                except (ValueError, RuntimeError, OSError, sqlite3.Error) as error:
+                    # The reason, in the log: "Action not saved" on the screen is right for the
+                    # patient and useless for whoever has to find out why.
+                    log(
+                        "action_refused",
+                        action=command.get("action"),
+                        question_id=command.get("question_id"),
+                        stage=flow.stage.value,
+                        failure=f"{type(error).__name__}: {error}",
+                    )
                     await send(
                         {
                             "type": "error",

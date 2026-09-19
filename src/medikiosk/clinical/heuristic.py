@@ -62,6 +62,27 @@ _SPEECH_POSITIVE = (
 # ("pet me dard", "sir dard"), each mapped to the canonical English the routing table and the
 # hospital's section map expect. Order matters only where one phrase contains another.
 COMPLAINTS: tuple[tuple[tuple[str, ...], str], ...] = (
+    # Jaundice first: "my eyes are yellow" names the complaint even when the sentence also
+    # names the eyes, and the body-part matcher below must not turn it into an eye complaint.
+    (
+        (
+            "yellow eyes",
+            "yellow skin",
+            "eyes are yellow",
+            "yellow",
+            "jaundice",
+            "peeli",
+            "peela",
+            "pili",
+            "pila",
+            "पीली",
+            "पीला",
+            "पीलिया",
+            "kamla",
+            "कामला",
+        ),
+        "jaundice (yellowing)",
+    ),
     (
         (
             "chest pain",

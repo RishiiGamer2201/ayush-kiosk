@@ -32,6 +32,10 @@ class ClinicalUpdate(BaseModel):
     one_sided_weakness: bool | None
     speech_difficulty: bool | None
     pregnancy_possible: bool | None
+    # Jaundice intake. Defaulted, so an extractor that has never heard of them still validates.
+    yellow_eyes: bool | None = None
+    dark_urine: bool | None = None
+    appetite_loss: bool | None = None
     age_years: int | None = Field(ge=0, le=125)
     medications: list[str]
     allergies: list[str]
@@ -85,6 +89,9 @@ class PatientState(BaseModel):
             "one_sided_weakness",
             "speech_difficulty",
             "pregnancy_possible",
+            "yellow_eyes",
+            "dark_urine",
+            "appetite_loss",
             "age_years",
         )
         for field_name in scalar_fields:

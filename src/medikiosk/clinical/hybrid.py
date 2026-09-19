@@ -48,6 +48,9 @@ SCALAR_FIELDS = (
     "one_sided_weakness",
     "speech_difficulty",
     "pregnancy_possible",
+    "yellow_eyes",
+    "dark_urine",
+    "appetite_loss",
     "age_years",
 )
 

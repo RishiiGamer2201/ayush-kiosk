@@ -135,6 +135,10 @@ BOOLEAN_FIELDS = frozenset(
         "vomiting", "fever", "breathlessness", "chest_pain", "pain_radiation", "sweating",
         "active_bleeding", "altered_consciousness", "one_sided_weakness", "speech_difficulty",
         "pregnancy_possible",
+        # Jaundice intake. Left out at first, and a tapped "yes" to "are your eyes yellow" was
+        # filed unresolved twice and then skipped - the question moved on and the answer was
+        # lost. Every yes/no field a question can target belongs here.
+        "yellow_eyes", "dark_urine", "appetite_loss",
     }
 )
 

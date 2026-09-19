@@ -129,7 +129,11 @@ def build(
         "patient": {
             # Last four digits only: enough for staff to match the card in hand, not enough to be
             # a usable identifier if this sheet is left on a desk.
-            "abha_last4": abha_number[-4:] if abha_number else None,
+            "abha_last4": (
+                abha_number if abha_number and "@" in abha_number else abha_number[-4:]
+            )
+            if abha_number
+            else None,
             "age_years": state.age_years,
             "language": state.detected_language,
             "reported_by": on_behalf_of or "self",

@@ -290,6 +290,9 @@ def kiosk_envelope(
         "status": status,
         "language": language or "en",
         "reporter": patient.get("reported_by") or "self",
+        # Always a guest: the cloud consent notice promises, in nine languages, that the ABHA is
+        # not sent. Linking by ABHA at the hospital is a change to that notice before it is a
+        # change here.
         "patient_ref": {"type": "guest"},
         "turns": turns,
         "fields": fields,
