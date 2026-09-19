@@ -230,6 +230,7 @@ def kiosk_envelope(
     engine_version: str | None = None,
     content_version: str | None = None,
     started_at: str | None = None,
+    abha: str | None = None,
 ) -> dict[str, Any]:
     """Wrap the kiosk's report as a KioskIntake v0.2 record.
 
@@ -290,10 +291,10 @@ def kiosk_envelope(
         "status": status,
         "language": language or "en",
         "reporter": patient.get("reported_by") or "self",
-        # Always a guest: the cloud consent notice promises, in nine languages, that the ABHA is
-        # not sent. Linking by ABHA at the hospital is a change to that notice before it is a
-        # change here.
-        "patient_ref": {"type": "guest"},
+        # The number or the address, under the one type the API's resolver takes. The cloud
+        # consent notice (kiosk-2) tells the patient this is sent and why; the patient who
+        # gave no ABHA is a guest.
+        "patient_ref": {"type": "abha", "value": abha} if abha else {"type": "guest"},
         "turns": turns,
         "fields": fields,
         "red_flags": [

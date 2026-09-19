@@ -307,6 +307,7 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
             isScanning: _scanning,
             scanError: _scanError,
             hideSystemActions: true,
+            speaking: _speaking,
           ),
         ],
       ),
@@ -337,6 +338,8 @@ class WorkflowBody extends StatefulWidget {
   final String? scanError;
 
   final bool hideSystemActions;
+  /// True while the kiosk is reading the screen aloud.
+  final bool speaking;
 
   const WorkflowBody({
     super.key,
@@ -347,6 +350,7 @@ class WorkflowBody extends StatefulWidget {
     this.isScanning = false,
     this.scanError,
     this.hideSystemActions = false,
+    this.speaking = false,
   });
 
   @override
@@ -395,6 +399,10 @@ class _WorkflowBodyState extends State<WorkflowBody> {
   /// the way out - repeat, staff help, back, restart - stays live throughout.
   bool get _blocked =>
       client.isProcessing || client.status != ConnectionStatus.connected || client.settling;
+
+  /// A permission is given after the notice, not during it. The cards wait while the kiosk
+  /// is still reading; a patient who has read it presses "I have read it" and they open.
+  bool get _holdForNotice => client.currentStage == KioskStage.consent && widget.speaking;
 
   List<String> _filteredActions(List<String> actions) {
     if (!widget.hideSystemActions) {
@@ -807,7 +815,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
       // 32px inside a card that can be 360px tall it was smaller than the label beneath it.
       final glyph = box.hasBoundedHeight ? (box.maxHeight * 0.32).clamp(32.0, 108.0) : 32.0;
       return TactileButton(
-      onPressed: _blocked ? null : () => client.action('choose', rawValue),
+      onPressed: _blocked || _holdForNotice ? null : () => client.action('choose', rawValue),
       height: 105,
       borderColor: meta.color.withAlpha(120),
       shadowColor: meta.color.withAlpha(180),
@@ -1405,6 +1413,22 @@ class _WorkflowBodyState extends State<WorkflowBody> {
         Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text('${progress[0]} / ${progress[1]}')),
       const SizedBox(height: 12),
 
+      if (displayOptions.isNotEmpty && _holdForNotice) ...[
+        Row(children: [
+          const Icon(Icons.hearing_rounded, color: Color(0xFF0284C7)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(tr('listen_first', client.language),
+              style: const TextStyle(fontSize: 16, color: Color(0xFF334155)))),
+          const SizedBox(width: 8),
+          TactileButton(
+            onPressed: () => client.action('hush'),
+            height: 48,
+            borderRadius: BorderRadius.circular(12),
+            label: tr('read_it', client.language),
+          ),
+        ]),
+        const SizedBox(height: 12),
+      ],
       if (displayOptions.isNotEmpty) ...[
         LayoutBuilder(
           builder: (context, constraints) {

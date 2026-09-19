@@ -1202,6 +1202,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 flow.action(action, value, question_id, method=method)
                 await send_screen()
                 return
+            if action == "hush":
+                # Stop reading and say nothing more. The action path has already cancelled the
+                # speaker; "cancel" would re-send the screen and start the notice over.
+                last_activity = time.monotonic()
+                return
             if action in {"repeat", "slower", "more_time", "cancel"}:
                 if action == "slower":
                     playback_rate = 0.8
@@ -1336,9 +1341,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 async def measure_behind() -> None:
                     taken = (session_id, guard.revision)
                     try:
+                        from medikiosk.edge.vitals import BACKGROUND_MEASURE_S
                         from medikiosk.edge.vitals import measure as measure_vitals
 
-                        outcome = await asyncio.to_thread(measure_vitals)
+                        outcome = await asyncio.to_thread(
+                            measure_vitals, 0, BACKGROUND_MEASURE_S
+                        )
                     except Exception as error:  # noqa: BLE001 - a camera fault is not a lost intake
                         log("vitals_failed", failure=f"{type(error).__name__}: {error}")
                         outcome = None
@@ -1357,6 +1365,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                             bpm=outcome.bpm,
                             confident=outcome.confident,
                             status=outcome.status,
+                            trusted_windows=outcome.windows_trusted,
+                            windows=outcome.windows_total,
+                            face_seen=outcome.face_seen,
                         )
                     else:
                         # Said plainly on the report. A number nobody measured is worse than none.
@@ -2021,6 +2032,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 content_version=hospital_sync.content_version(config),
                 kiosk_id=active_settings.kiosk_id or socket.gethostname(),
                 engine_version=f"medikiosk-{__version__}",
+                abha=flow.abha_number,
             )
             department = hospital_sync.department_code(
                 config, hospital_id, (built.get("routing") or {}).get("queue")

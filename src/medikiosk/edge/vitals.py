@@ -23,6 +23,16 @@ import numpy as np
 # The analysis grid the pulse estimator resamples onto; breathing is read on the same grid.
 FS = 30.0
 MEASURE_S = 30.0
+# Behind the intake nobody is waiting, so the trace can be longer; the patient is also moving,
+# so the estimate is read off sliding windows and the trusted ones are pooled. A window of
+# ROLL_WINDOW_S every ROLL_HOP_S, at least ROLL_MIN_CONFIDENT of them confident and within
+# ROLL_MAX_SPREAD_BPM of each other (an interquartile range - a resting pulse does not wander
+# further in a minute; a noise harmonic does).
+BACKGROUND_MEASURE_S = 45.0
+ROLL_WINDOW_S = 10.0
+ROLL_HOP_S = 1.0
+ROLL_MIN_CONFIDENT = 3
+ROLL_MAX_SPREAD_BPM = 12.0
 
 # Breathing band, in Hz: 0.1-0.5 is 6-30 breaths a minute. Anything slower is baseline drift,
 # anything faster is movement rather than respiration.
@@ -171,6 +181,11 @@ class Vitals:
     status: str
     breaths_per_min: float | None = None
     breath_confident: bool = False
+    # How the verdict was reached: sliding windows the estimator trusted, out of how many.
+    # In the log, this is the difference between "patient moved" and "camera pointed at a wall".
+    windows_trusted: int = 0
+    windows_total: int = 0
+    face_seen: float = 0.0
 
 
 def measure(camera: int | str = 0, seconds: float = MEASURE_S) -> Vitals:
@@ -255,7 +270,8 @@ def measure(camera: int | str = 0, seconds: float = MEASURE_S) -> Vitals:
     if len(samples) < 2:
         return Vitals(None, False, "no frames from camera")
     data = np.asarray(samples, dtype=np.float64)
-    result, status = analyze_window(data[:, 0], data[:, 1:4], data[:, 4] > 0, seconds)
+    bpm, confident, status, trusted, total = pooled_estimate(data, seconds, analyze_window)
+    seen = float(data[:, 4].mean())
 
     # Breathing is read from the same trace, on its own terms: it survives a window too short or
     # too noisy for a pulse, and it fails on windows where the pulse came out fine.
@@ -272,11 +288,43 @@ def measure(camera: int | str = 0, seconds: float = MEASURE_S) -> Vitals:
             if breaths is not None:
                 breaths = round(breaths, 1)
 
-    if result is None:
-        seen = float(data[:, 4].mean()) if len(data) else 0.0
+    if bpm is None:
         if seen < 0.5:
-            return Vitals(None, False, "no face in view - point the camera at the patient's face")
-        return Vitals(None, False, status, breaths, breath_ok)
+            status = "no face in view - point the camera at the patient's face"
+        return Vitals(None, False, status, breaths, breath_ok, trusted, total, round(seen, 2))
     return Vitals(
-        round(float(result.bpm), 1), bool(result.confident), "ok", breaths, breath_ok
+        round(float(bpm), 1), confident, "ok", breaths, breath_ok, trusted, total, round(seen, 2)
     )
+
+
+def pooled_estimate(
+    data, seconds: float, analyze
+) -> tuple[float | None, bool, str, int, int]:
+    """Heart rate from the trusted sliding windows of a trace, falling back to the whole of it.
+
+    Returns (bpm, confident, status, trusted windows, windows). Confident only when
+    ROLL_MIN_CONFIDENT windows each passed the estimator's own SNR and POS/CHROM checks and
+    agree with each other; then the median of them is the reading. Otherwise whatever a single pass over the whole trace says,
+    which is never confident here - the whole trace failed for a reason.
+    """
+
+    t, rgb, valid = data[:, 0], data[:, 1:4], data[:, 4] > 0
+    trusted: list[float] = []
+    total = 0
+    end = t[0] + ROLL_WINDOW_S
+    while end <= t[-1] + 1e-9:
+        mask = (t >= end - ROLL_WINDOW_S) & (t <= end)
+        if mask.sum() >= 2:
+            total += 1
+            result, _ = analyze(t[mask], rgb[mask], valid[mask], ROLL_WINDOW_S)
+            if result is not None and result.confident:
+                trusted.append(float(result.bpm))
+        end += ROLL_HOP_S
+    if len(trusted) >= ROLL_MIN_CONFIDENT:
+        q1, q3 = np.percentile(trusted, [25, 75])
+        if q3 - q1 <= ROLL_MAX_SPREAD_BPM:
+            return float(np.median(trusted)), True, "ok", len(trusted), total
+    whole, status = analyze(t, rgb, valid, seconds)
+    if whole is None:
+        return None, False, status, len(trusted), total
+    return float(whole.bpm), False, "ok", len(trusted), total

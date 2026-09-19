@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../l10n.dart';
@@ -23,6 +24,29 @@ class KioskClient extends ChangeNotifier {
   int _generation = 0;
   String? _sessionId;
   String? _token;
+  // The session token outlives the process, so a killed or rebooted tablet resumes the
+  // patient's intake instead of starting a new one over their answers.
+  bool _restored = false;
+  static const _tokenKey = 'medikiosk.session_token';
+  String get _tokenPref => '$_tokenKey.$_host:$_port';
+
+  Future<void> _restoreToken() async {
+    try {
+      _token = (await SharedPreferences.getInstance()).getString(_tokenPref);
+    } catch (_) {
+      _token = null;
+    }
+  }
+
+  void _rememberToken(String? token) {
+    SharedPreferences.getInstance().then((prefs) {
+      if (token == null) {
+        prefs.remove(_tokenPref);
+      } else {
+        prefs.setString(_tokenPref, token);
+      }
+    }).catchError((_) {});
+  }
   int _revision = 0;
   String? _captureEpoch;
   Map<String, dynamic>? _pending;
@@ -97,6 +121,11 @@ class KioskClient extends ChangeNotifier {
 
   void connect() {
     if (_disposed || _status == ConnectionStatus.connected || _status == ConnectionStatus.connecting) return;
+    if (!_restored) {
+      _restored = true;
+      _restoreToken().then((_) { if (!_disposed) connect(); });
+      return;
+    }
     _reconnectTimer?.cancel();
     _setStatus(ConnectionStatus.connecting);
     final generation = ++_generation;
@@ -117,16 +146,19 @@ class KioskClient extends ChangeNotifier {
         if (_disposed || generation != _generation) return;
         final code = channel.closeCode;
         _cleanup();
-        if (code == 4408) {
-          // Privacy timeout: the patient walked away. Forget their capability and start fresh.
+        if (code == 4408 || code == 4404) {
+          // 4408: privacy timeout, the patient walked away. 4404: the token we kept is one the
+          // server no longer knows. Either way forget it and start fresh; a kiosk parked on an
+          // error message serves nobody.
           _sessionId = _token = null;
+          _rememberToken(null);
           _pending = null;
           _clearPatient();
           connect();
           return;
         }
-        if (code == 4404 || code == 4409) {
-          _error = code == 4409 ? 'This session is open on another connection.' : 'This session cannot be resumed. Ask staff for help.';
+        if (code == 4409) {
+          _error = 'This session is open on another connection.';
           notifyListeners();
           return;
         }
@@ -162,6 +194,7 @@ class KioskClient extends ChangeNotifier {
       }
       _sessionId = id;
       _token = msg['session_token'] as String;
+      _rememberToken(_token);
       // Flat key, and on session.id rather than session.ready: ready arrives before this client
       // has a session id and is discarded unread, so the owner travels with the first message it
       // actually adopts.

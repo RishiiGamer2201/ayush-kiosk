@@ -263,6 +263,8 @@ def test_every_field_declares_whether_it_was_answered() -> None:
     assert env["completed_at"] == "2026-09-12T00:00:00Z"
     # The full ABHA never travels, and the patient stays a guest on the hospital's side.
     assert env["patient_ref"] == {"type": "guest"}
+    linked = kiosk_envelope(report, "abc", hospital_id="h", abha="rishiisingh2201@abdm")
+    assert linked["patient_ref"] == {"type": "abha", "value": "rishiisingh2201@abdm"}
     assert "12345678901234" not in str(env)
 
 
