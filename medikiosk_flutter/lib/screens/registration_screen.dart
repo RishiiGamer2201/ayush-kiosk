@@ -196,22 +196,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   _buildGenderPill('Other', tr('other_gender', widget.language), Icons.transgender_rounded),
                 ],
               ),
-              const SizedBox(height: 10),
-
-              // ABHA Number
-              TextField(
-                controller: _abhaController,
-                keyboardType: TextInputType.number,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                decoration: InputDecoration(
-                  labelText: tr('abha_optional', widget.language),
-                  prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFF0D9488)),
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-              ),
+              // The ABHA number is asked for on its own screen straight after this one.
+              // Asking for it twice invites two different answers.
             ],
           );
         }

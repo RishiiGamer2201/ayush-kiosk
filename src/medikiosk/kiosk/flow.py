@@ -971,8 +971,14 @@ class KioskFlow:
         else:
             actions += {
                 Stage.REGISTRATION: ["answer", "unknown", "refuse"],
-                Stage.ABHA: ["answer", "scan", "skip"],
-                Stage.VITALS: [] if self.vitals_busy else ["measure", "skip"],
+                # No skip offered when the number is required: a button that is refused when
+                # pressed is worse than no button.
+                Stage.ABHA: ["answer", "scan"] if self.demo_flow else ["answer", "scan", "skip"],
+                # In the demo order this screen is a notice the patient acknowledges, not a
+                # measurement they wait through, and it is not optional.
+                Stage.VITALS: ["done"]
+                if self.demo_flow
+                else ([] if self.vitals_busy else ["measure", "skip"]),
                 Stage.INTERVIEW: ["answer", "unknown", "refuse", "cancel"],
                 Stage.AYURVEDA: ["unknown", "refuse"],
                 Stage.PRAKRITI: ["unknown", "refuse"],
@@ -1116,7 +1122,10 @@ class KioskFlow:
             if self.vitals_busy:
                 return {**base, "headline": t("vitals_measuring", self.language)}
             reading = self.vitals
-            if reading is None:
+            if self.demo_flow:
+                # Nobody waits here in the demo order: the camera works while they answer.
+                headline = t("vitals_notice", self.language)
+            elif reading is None:
                 headline = t("vitals", self.language)
             else:
                 parts = []
@@ -1471,6 +1480,9 @@ class KioskFlow:
         self.report.update(
             {
                 "registration": copy.deepcopy(self.registration),
+                # What the camera measured, so the sheet can show it. None throughout when the
+                # measurement did not get a reading; the screen says so rather than inventing one.
+                "vitals": copy.deepcopy(self.vitals),
                 "accepted_answers": copy.deepcopy(
                     [a for a in self.answers if not a.get("superseded")]
                 ),

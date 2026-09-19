@@ -905,12 +905,25 @@ class _WorkflowBodyState extends State<WorkflowBody> {
                 ),
               ),
             ),
-            const SizedBox(height: 10),
-            if (_filteredActions(actions).isNotEmpty)
-              Wrap(alignment: WrapAlignment.center, children: [
-                for (final action in _filteredActions(actions))
-                  button(_label(action), action),
-              ]),
+            const SizedBox(height: 12),
+            // A notice, not a wait. The measurement runs behind the patient while they answer
+            // the questions, so this screen explains what the camera is doing and gets out of
+            // the way. The old screen made them watch a preview for thirty seconds.
+            Text(
+              tr('vitals_explainer', client.language),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16, color: Color(0xFF334155), height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            TactileButton(
+              onPressed: _blocked ? null : () => client.action('done'),
+              height: 72,
+              isSuccess: true,
+              borderRadius: BorderRadius.circular(16),
+              label: tr('vitals_start', client.language),
+            ),
+            // No generic action row here: the button above already sends the only action this
+            // screen has, and drawing it twice asks the patient which one is the real one.
           ],
         );
       },
@@ -938,6 +951,40 @@ class _WorkflowBodyState extends State<WorkflowBody> {
         Expanded(child: Text(tr('narrative_hint', client.language),
             style: const TextStyle(color: Color(0xFF475569)))),
       ]),
+      const SizedBox(height: 12),
+      // Tapping the figure writes the part into the description, so a patient who cannot write
+      // can still say where it hurts. Speaking into the box works exactly as before.
+      // The figure needs real width to be tappable; below that it is dropped rather than
+      // squeezed into something nobody can hit. Speaking and typing carry the screen on their
+      // own, so losing it on a narrow display costs the patient nothing.
+      Builder(builder: (context) {
+        // The screen itself, not the layout box: this sits in a scroll view, so the box says
+        // nothing about whether the patient can reach the Proceed button underneath. On a
+        // display too small for both, the figure is the part to drop - speaking and typing
+        // carry the screen on their own.
+        final screen = MediaQuery.sizeOf(context);
+        if (screen.width < 700 || screen.height < 700) return const SizedBox.shrink();
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(tr('where_hurts', client.language),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 300,
+            child: BodyMapWidget(
+          selectedZone: _selectedZone,
+          onZoneSelected: (zone) {
+            final meta = bodyZoneMetadata[zone]!;
+            final part = client.language == 'hi' ? meta.labelHi : meta.labelEn;
+            setState(() {
+              _selectedZone = zone;
+              final existing = client.narrative.trim();
+              client.setNarrative(existing.isEmpty ? part : '$existing, $part');
+            });
+          },
+            ),
+          ),
+        ]);
+      }),
       const SizedBox(height: 12),
       TextField(controller: _narrative, minLines: 3, maxLines: 6, maxLength: 1500,
         style: const TextStyle(fontSize: 18),
@@ -1120,7 +1167,8 @@ class _WorkflowBodyState extends State<WorkflowBody> {
         clinicalAnswers: const [],
         extractedDocumentLines: const [],
         onNewPatient: () => client.action('restart'),
-        onPrintSlip: client.status != ConnectionStatus.connected ? null : _downloadSlip,
+        // No PDF for the demo: the token is on the screen and the record is with the hospital.
+        onPrintSlip: null,
       );
 
       return LayoutBuilder(

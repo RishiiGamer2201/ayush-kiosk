@@ -186,6 +186,26 @@ class ReportScreen extends StatelessWidget {
                 onEdit: onEdit,
               )),
               const SizedBox(height: 6),
+              // What the camera measured while the patient answered. Shown as "not measured"
+              // when it did not get a reading: a plausible number nobody took is the one thing
+              // a sheet a doctor reads must never carry.
+              if (_vitals['bpm'] != null && _vitals['confident'] == true) ...[
+                Expanded(child: _buildSummaryTile(
+                  icon: Icons.favorite_rounded,
+                  title: tr('vitals_heart', language),
+                  value: '${(_vitals['bpm'] as num).round()} bpm',
+                  onEdit: null,
+                )),
+                const SizedBox(height: 6),
+              ] else if (_vitals.isNotEmpty) ...[
+                Expanded(child: _buildSummaryTile(
+                  icon: Icons.favorite_border_rounded,
+                  title: tr('vitals_heart', language),
+                  value: tr('vitals_not_taken', language),
+                  onEdit: null,
+                )),
+                const SizedBox(height: 6),
+              ],
               Expanded(child: prakriti != null
                 ? _buildSummaryTile(
                     icon: Icons.spa_rounded,
@@ -333,6 +353,9 @@ class ReportScreen extends StatelessWidget {
       ),
     );
   }
+
+  Map<String, dynamic> get _vitals =>
+      (reportData?['vitals'] as Map?)?.cast<String, dynamic>() ?? const {};
 
   Map<String, dynamic> get _clinical =>
       (reportData?['clinical'] as Map?)?.cast<String, dynamic>() ?? const {};

@@ -1349,6 +1349,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 task = asyncio.create_task(measure_behind(), name=f"vitals-{session_id}")
                 turn_tasks.add(task)
                 task.add_done_callback(turn_tasks.discard)
+                # The patient moves on now; the camera keeps working behind them. Without this
+                # they sat on the notice watching a preview that the measurement had already
+                # taken the camera away from.
+                await send_screen()
                 return
             elif effect == "measure":
                 # Tell the patient to hold still before the camera opens, not after.
