@@ -13,8 +13,13 @@ class KioskFrame extends StatelessWidget {
   final VoidCallback? onSkip;
   final VoidCallback? onDontKnow;
   final VoidCallback? onSettings;
+  /// Staff-only settings are reached by holding the icon, so a patient cannot wander in.
+  final bool settingsNeedsLongPress;
   final VoidCallback? onRestart;
   final bool isListening;
+  /// True while the kiosk is speaking. Shown, because a patient who cannot tell whether the
+  /// machine is talking or stuck will start pressing things.
+  final bool isSpeaking;
   final bool isConnected;
   final String? title;
   final String? currentStepLabel;
@@ -35,6 +40,8 @@ class KioskFrame extends StatelessWidget {
     this.onSettings,
     this.onRestart,
     this.isListening = false,
+    this.isSpeaking = false,
+    this.settingsNeedsLongPress = false,
     this.isConnected = true,
     this.title,
     this.currentStepLabel,
@@ -197,11 +204,25 @@ class KioskFrame extends StatelessWidget {
                   if (onSettings != null)
                     Padding(
                       padding: const EdgeInsets.only(right: 6),
-                      child: IconButton(
-                        icon: const Icon(Icons.settings_rounded, size: 20, color: Color(0xFF64748B)),
-                        onPressed: onSettings,
-                        tooltip: 'Settings',
-                      ),
+                      // A tap does nothing when this is staff-only: the dialog behind it carries
+                      // the Jetson's address and a Connect button, and a patient waiting in a
+                      // queue will press anything that presses. A disabled IconButton still
+                      // swallows the gesture, so when it is staff-only there is no button here
+                      // at all - just an icon that answers to being held.
+                      child: settingsNeedsLongPress
+                          ? InkWell(
+                              onLongPress: onSettings,
+                              borderRadius: BorderRadius.circular(24),
+                              child: const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: Icon(Icons.settings_rounded, size: 20, color: Color(0xFF64748B)),
+                              ),
+                            )
+                          : IconButton(
+                              icon: const Icon(Icons.settings_rounded, size: 20, color: Color(0xFF64748B)),
+                              onPressed: onSettings,
+                              tooltip: 'Settings',
+                            ),
                     ),
 
                   // 1. Repeat Audio Button (सुनें)
@@ -385,18 +406,26 @@ class KioskFrame extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
-                      size: 18,
-                      color: isListening ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+                      isSpeaking
+                          ? Icons.volume_up_rounded
+                          : (isListening ? Icons.mic_rounded : Icons.mic_none_rounded),
+                      size: 22,
+                      color: isSpeaking
+                          ? const Color(0xFF047857)
+                          : (isListening ? const Color(0xFF2563EB) : const Color(0xFF64748B)),
                     ),
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
-                        isListening ? tr('mic_on', language) : tr('voice_ready', language),
+                        isSpeaking
+                            ? tr('speaking', language)
+                            : (isListening ? tr('mic_on', language) : tr('voice_ready', language)),
                         style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: isListening ? const Color(0xFF1D4ED8) : const Color(0xFF64748B),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: isSpeaking
+                              ? const Color(0xFF047857)
+                              : (isListening ? const Color(0xFF1D4ED8) : const Color(0xFF64748B)),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

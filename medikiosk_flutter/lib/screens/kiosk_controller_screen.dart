@@ -47,6 +47,9 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
   String? _scanError;
   int _speechGeneration = 0;
   bool _speechPending = false;
+  /// True while the kiosk is saying something, so the screen can tell the patient to listen
+  /// rather than leaving them to guess whether it is broken.
+  bool _speaking = false;
   double _playbackRate = 1;
 
   @override
@@ -119,12 +122,24 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
       case 'tts.start':
         ++_speechGeneration;
         _speechPending = true;
+        setState(() => _speaking = true);
         _playbackRate = (message['playback_rate'] as num?)?.toDouble() ?? 1;
         _client.playbackState(true);
         _updateMicrophone();
         break;
+      // Without this the flag set on tts.start was never taken back when the kiosk owns the
+      // speaker - no tts.audio ever arrives to clear it - so the tablet went on telling the
+      // server a prompt was playing, and the server drops every microphone frame while it
+      // believes that.
+      case 'tts.end':
+        _speechPending = false;
+        _client.playbackState(false);
+        _updateMicrophone();
+        if (mounted) setState(() => _speaking = false);
+        break;
       case 'tts.cancelled':
         final generation = ++_speechGeneration;
+        if (mounted) setState(() => _speaking = false);
         await _audio.stopPlayback();
         if (!mounted || generation != _speechGeneration) return;
         _speechPending = _audio.isPlaying;
@@ -226,13 +241,17 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
       language: _client.language,
       isConnected: isConnected,
       isListening: _audio.isListening && _client.voiceAvailable,
+      isSpeaking: _speaking,
       onBack: canBack ? () => _client.action('back') : null,
       onRepeatAudio: canRepeat ? () => _client.action('repeat') : null,
       onRestart: canRestart ? () => _client.action('restart') : _client.reconnect,
       onStaffHelp: canHelp ? () => _client.action('help') : null,
       onDontKnow: onDontKnow,
       onSkip: onSkip,
+      // Long press, not a tap: this opens an engineering dialog with the Jetson's address in it,
+      // and on a kiosk in a waiting room a patient will find anything that can be tapped.
       onSettings: _configure,
+      settingsNeedsLongPress: true,
       body: Stack(
         children: [
           if (_scanning) const Positioned(top: 0, left: 0, right: 0, child: LinearProgressIndicator()),
@@ -378,7 +397,10 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     }
     return actions.where((a) => !{
       'answer', 'choose', 'edit', 'preview', 'document',
-      'repeat', 'restart', 'help',
+      // 'back' is already the first thing in the top bar. Drawing it again in the body gave
+      // every screen two identical buttons in different places, which is one more decision
+      // than the patient needs.
+      'repeat', 'restart', 'help', 'back',
       'unknown', 'skip', 'yes', 'no',
       'more_time', 'wait', 'slower', 'withdraw',
       'refuse',
@@ -769,7 +791,11 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     final meta = _resolveOptionMeta(rawLabel, '$rawValue', index, client.headline);
     final buttonLabel = '${index + 1}. $rawLabel';
 
-    return TactileButton(
+    return LayoutBuilder(builder: (context, box) {
+      // For a patient who does not read easily the picture carries the meaning, and at a fixed
+      // 32px inside a card that can be 360px tall it was smaller than the label beneath it.
+      final glyph = box.hasBoundedHeight ? (box.maxHeight * 0.32).clamp(32.0, 108.0) : 32.0;
+      return TactileButton(
       onPressed: _blocked ? null : () => client.action('choose', rawValue),
       height: 105,
       borderColor: meta.color.withAlpha(120),
@@ -779,7 +805,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(meta.emoji, style: const TextStyle(fontSize: 32)),
+          Text(meta.emoji, style: TextStyle(fontSize: glyph)),
           const SizedBox(height: 5),
           Text(
             buttonLabel,
@@ -792,23 +818,10 @@ class _WorkflowBodyState extends State<WorkflowBody> {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
           ),
-          if (meta.sub.isNotEmpty && (client.language == 'en' || client.language == 'hi')) ...[
-            const SizedBox(height: 2),
-            Text(
-              meta.sub,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF64748B),
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-            ),
-          ],
         ],
-      ),
-    );
+        ),
+      );
+    });
   }
 
   Widget button(String label, String action, [dynamic value]) => Padding(
