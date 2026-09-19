@@ -924,7 +924,12 @@ class _WorkflowBodyState extends State<WorkflowBody> {
         selection: TextSelection.collapsed(offset: client.narrative.length),
       );
     }
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+    // Scrolls, because the keyboard takes half the screen. In landscape this Column overflowed
+    // by 154 pixels with the keyboard open - Flutter's striped overflow bar on screen in front
+    // of the patient - and pushed Proceed past the bottom edge, so the complaint could be typed
+    // and then not submitted.
+    return SingleChildScrollView(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Semantics(header: true, child: Text(client.headline, style: Theme.of(context).textTheme.headlineSmall)),
       const SizedBox(height: 12),
       Row(children: [
@@ -934,7 +939,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
             style: const TextStyle(color: Color(0xFF475569)))),
       ]),
       const SizedBox(height: 12),
-      TextField(controller: _narrative, minLines: 4, maxLines: 8, maxLength: 1500,
+      TextField(controller: _narrative, minLines: 3, maxLines: 6, maxLength: 1500,
         style: const TextStyle(fontSize: 18),
         onChanged: client.setNarrative,
         decoration: InputDecoration(border: const OutlineInputBorder(),
@@ -949,7 +954,8 @@ class _WorkflowBodyState extends State<WorkflowBody> {
           for (final action in _filteredActions(actions))
             button(_label(action), action),
         ]),
-    ]);
+    ]),
+    );
   }
 
   @override
@@ -1344,6 +1350,38 @@ class _WorkflowBodyState extends State<WorkflowBody> {
               ),
             ),
         ]),
+        const SizedBox(height: 12),
+      ],
+
+      // The flow asks for this control by name and the screen drew a keyboard. Someone who does
+      // not write easily could only answer it by speaking, and nothing on screen said so.
+      if (displayOptions.isEmpty && stage == KioskStage.interview && client.answerUi == 'duration') ...[
+        LayoutBuilder(builder: (context, constraints) {
+          const choices = [
+            ('dur_today', '☀️'),
+            ('dur_yesterday', '🌙'),
+            ('dur_few_days', '📅'),
+            ('dur_week', '🗓️'),
+            ('dur_month_plus', '⏳'),
+          ];
+          final isWide = constraints.maxWidth > 550;
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: isWide ? 3 : 2,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              mainAxisExtent: 150,
+            ),
+            itemCount: choices.length,
+            itemBuilder: (context, i) => _buildAnswerCard(
+              tr(choices[i].$1, client.language),
+              tr(choices[i].$1, client.language),
+              _OptionMeta(emoji: choices[i].$2, sub: '', color: const Color(0xFF0D9488)),
+            ),
+          );
+        }),
         const SizedBox(height: 12),
       ],
 

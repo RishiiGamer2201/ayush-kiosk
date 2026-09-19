@@ -181,7 +181,7 @@ class FacesSeverityWidget extends StatelessWidget {
 
                     // English Subtext
                     Text(
-                      language == 'en' ? '' : face.labelEn,
+                      '',
                       style: const TextStyle(
                         fontSize: 11,
                         color: AppTheme.textSecondary,
