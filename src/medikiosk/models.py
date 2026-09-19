@@ -52,6 +52,11 @@ class PatientState(BaseModel):
     pain_radiation: bool | None = None
     sweating: bool | None = None
     active_bleeding: bool | None = None
+    # Jaundice intake. Yellowing and dark urine are what a patient notices first, and appetite
+    # loss is what brings them in.
+    yellow_eyes: bool | None = None
+    dark_urine: bool | None = None
+    appetite_loss: bool | None = None
     altered_consciousness: bool | None = None
     one_sided_weakness: bool | None = None
     speech_difficulty: bool | None = None

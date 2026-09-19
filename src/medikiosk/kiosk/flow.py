@@ -386,7 +386,17 @@ def control_for(question_id: str | None) -> dict | None:
 class KioskFlow:
     """Sequences the nine steps. Owns no clinical logic - it only decides which stage is current."""
 
-    def __init__(self, ayush_track: bool = True, prefers_ayush: bool = False) -> None:
+    def __init__(
+        self,
+        ayush_track: bool = True,
+        prefers_ayush: bool = False,
+        demo_flow: bool = False,
+        prakriti_on_file: bool = False,
+    ) -> None:
+        # The demo order, and whether this patient's ABHA already carries a prakriti. Both are
+        # decided by the caller; the flow only follows them.
+        self.demo_flow = demo_flow
+        self.prakriti_on_file = prakriti_on_file
         self.stage = Stage.LANGUAGE
         self.language: str | None = None
         self.abha_number: str | None = None
@@ -529,10 +539,23 @@ class KioskFlow:
     def complete_interview(self) -> None:
         if self.stage is not Stage.INTERVIEW:
             raise ValueError("Not in interview")
+        if self.demo_flow and self.prakriti_on_file:
+            # Already answered on an earlier visit under this ABHA. Asking 68 questions again
+            # to learn what the record already says is the kind of thing that makes people
+            # give up on a kiosk.
+            self.prakriti_previously_filled = True
+            self.prakriti_previous_status = "on_file"
+            self.stage = Stage.DOCUMENTS
+            self._documents_permission()
+            return
         self.stage = Stage.AYURVEDA if self.ayush_track else Stage.PRAKRITI
 
     @property
     def _previous_question_pending(self) -> bool:
+        if self.demo_flow:
+            # The ABHA record answers this. Asking the patient whether they have filled a form
+            # before is asking them to do the kiosk's filing for it.
+            return False
         return self.edit_target == "prakriti.previous" or (
             self.prakriti_previous_status is None and self.prakriti_previously_filled is None
         )
@@ -640,7 +663,12 @@ class KioskFlow:
                 method,
             )
             if self.consent_purpose == "local_intake":
-                self.stage = Stage.REGISTRATION if value == "yes" else Stage.DECLINED
+                if value != "yes":
+                    self.stage = Stage.DECLINED
+                else:
+                    # The vitals notice comes first in the demo order: the camera then has the
+                    # whole intake to measure in, instead of the patient waiting on it.
+                    self.stage = Stage.VITALS if self.demo_flow else Stage.REGISTRATION
             elif self.consent_purpose == "cloud_intake":
                 # Either answer finishes the encounter. A refusal is a complete intake that
                 # stays on this Jetson, not an abandoned one.
@@ -696,6 +724,10 @@ class KioskFlow:
             if action == "scan":
                 return "scan"
             if action in {"unknown", "skip", "refuse"}:
+                if self.demo_flow:
+                    # Required in the demo order: the ABHA is what tells the kiosk whether this
+                    # patient already has a prakriti on file.
+                    raise ValueError("An ABHA number is required")
                 self.abha_number = None
             elif action == "answer":
                 number = normalise(str(value))
@@ -704,7 +736,8 @@ class KioskFlow:
                 self.abha_number = number
             else:
                 raise ValueError("Enter or skip identity")
-            self.stage = Stage.HUB
+            # No service-choice screen in the demo order: the problem is what the kiosk is for.
+            self.stage = Stage.INTERVIEW if self.demo_flow else Stage.HUB
         elif self.stage is Stage.HUB:
             if action != "choose" or value not in {"clinical", "prakriti", "vitals"}:
                 raise ValueError("Choose a service")
@@ -714,6 +747,13 @@ class KioskFlow:
                 self.prefers_ayush = value == "prakriti"
                 self.stage = Stage.INTERVIEW if value == "clinical" else Stage.PRAKRITI
         elif self.stage is Stage.VITALS:
+            if self.demo_flow:
+                # A notice, not a wait. The patient acknowledges it, the measurement starts
+                # behind them, and they carry on with the questions.
+                if action not in {"done", "next", "measure", "confirm", "choose"}:
+                    raise ValueError("Acknowledge the vitals notice")
+                self.stage = Stage.REGISTRATION
+                return "measure_background"
             if self.vitals_busy:
                 raise ValueError("A measurement is already running")
             if action == "measure":
@@ -826,7 +866,10 @@ class KioskFlow:
                 self.edit_target = None
                 self.stage = Stage.REVIEW
         elif self.stage is Stage.DOCUMENTS:
-            if self.document_preview is not None:
+            # Without this the patient was stuck: a scan leaves a preview, and every way off the
+            # screen was refused until they answered a keep/retake/discard question they had not
+            # been asked for. What was read is kept and shown; they can scan again or move on.
+            if self.document_preview is not None and not self.demo_flow:
                 raise ValueError("Keep, discard, or retake the current preview first")
             if action in {"scan", "retake", "discard"}:
                 return action

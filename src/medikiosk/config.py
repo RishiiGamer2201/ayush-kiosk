@@ -14,6 +14,15 @@ class Settings(BaseSettings):
     )
 
     deployment_profile: Literal["online", "pi", "jetson", "demo"] = "online"
+    # The demo order, for filming: no service-choice screen, vitals measured in the background
+    # while the patient answers, ABHA required, prakriti mandatory unless that ABHA already has
+    # one on file. Off restores the original order.
+    demo_flow: bool = False
+    # Which interview questions are asked. "jaundice_demo" asks about jaundice only and leaves
+    # out the red-flag questions - chest pain, bleeding, breathlessness - which means the
+    # emergency alert cannot fire. That is deliberate for a filmed run and must be set back to
+    # "general" for real use.
+    question_set: Literal["general", "jaundice_demo"] = "general"
     openai_api_key: str | None = Field(default=None, repr=False)
     openai_model: str = "gpt-5.6-terra"
     sarvam_api_key: str | None = Field(default=None, repr=False)

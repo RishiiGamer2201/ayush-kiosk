@@ -22,10 +22,15 @@ class Naturalizer(Protocol):
 
 
 class ClinicalSession:
-    def __init__(self, extractor: Extractor, naturalizer: Naturalizer) -> None:
+    def __init__(
+        self,
+        extractor: Extractor,
+        naturalizer: Naturalizer,
+        question_set: str = "general",
+    ) -> None:
         self.extractor = extractor
         self.naturalizer = naturalizer
-        self.state_machine = ClinicalStateMachine()
+        self.state_machine = ClinicalStateMachine(question_set)
         self.state = PatientState()
         self._lock = asyncio.Lock()
 

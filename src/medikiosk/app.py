@@ -222,6 +222,21 @@ async def _play_on_speaker(
             os.unlink(handle.name)
 
 
+def _prakriti_on_file(store: Any, abha_number: str | None) -> bool:
+    """True when an earlier visit under this ABHA already recorded a prakriti.
+
+    Asking a patient sixty-eight questions again to learn what their own record already says is
+    how a kiosk loses the queue behind it.
+    """
+
+    if not abha_number or store is None:
+        return False
+    try:
+        return any(visit.get("prakriti") for visit in store.history(abha_number))
+    except Exception:  # noqa: BLE001 - an unreadable history is not a reason to refuse intake
+        return False
+
+
 def _wav_pcm_and_rate(wav_bytes: bytes) -> tuple[bytes, int]:
     with wave.open(io.BytesIO(wav_bytes)) as handle:
         return handle.readframes(handle.getnframes()), handle.getframerate()
@@ -830,7 +845,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # The eight-step workflow around the clinical interview. It owns no clinical logic - the
         # state machine, red flags and extractors are unchanged - it only decides which stage the
         # patient is on and what the client should render.
-        flow = KioskFlow()
+        def new_flow(abha: str | None = None) -> KioskFlow:
+            """A flow in the configured order, told whether this ABHA already has a prakriti."""
+
+            return KioskFlow(
+                demo_flow=bool(active_settings.demo_flow),
+                prakriti_on_file=_prakriti_on_file(records, abha),
+            )
+
+        flow = new_flow()
         # Red flags accumulate across the whole session: one fired during the interview still has
         # to appear on the report built several stages later.
         session_red_flags: list[Any] = []
@@ -1251,7 +1274,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 guard = SessionGuard()
                 session_id = guard.session_id
                 leased_tokens.add(guard.token)
-                flow = KioskFlow()
+                flow = new_flow()
                 session = replacement
                 session_red_flags.clear()
                 attempts.clear()
@@ -1289,6 +1312,43 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     await send_screen()
                     return
                 await finish_session()
+                return
+            elif effect == "measure_background":
+                # Started behind the patient and never awaited: they answer questions while the
+                # camera works, and the reading is on the report by the time they reach it.
+                async def measure_behind() -> None:
+                    taken = (session_id, guard.revision)
+                    try:
+                        from medikiosk.edge.vitals import measure as measure_vitals
+
+                        outcome = await asyncio.to_thread(measure_vitals)
+                    except Exception as error:  # noqa: BLE001 - a camera fault is not a lost intake
+                        log("vitals_failed", failure=f"{type(error).__name__}: {error}")
+                        outcome = None
+                    if taken[0] != session_id:
+                        return
+                    if outcome is not None:
+                        flow.record_vitals(
+                            outcome.bpm,
+                            outcome.confident,
+                            outcome.status,
+                            outcome.breaths_per_min,
+                            outcome.breath_confident,
+                        )
+                        log(
+                            "vitals_recorded",
+                            bpm=outcome.bpm,
+                            confident=outcome.confident,
+                            status=outcome.status,
+                        )
+                    else:
+                        # Said plainly on the report. A number nobody measured is worse than none.
+                        flow.record_vitals(None, False, "not measured")
+                    persist()
+
+                task = asyncio.create_task(measure_behind(), name=f"vitals-{session_id}")
+                turn_tasks.add(task)
+                task.add_done_callback(turn_tasks.discard)
                 return
             elif effect == "measure":
                 # Tell the patient to hold still before the camera opens, not after.

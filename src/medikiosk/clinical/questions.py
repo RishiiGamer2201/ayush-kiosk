@@ -13,6 +13,9 @@ TARGET_FIELD: dict[str, str] = {
     "ask_vomiting": "vomiting",
     "ask_fever": "fever",
     "ask_bleeding": "active_bleeding",
+    "ask_yellow_eyes": "yellow_eyes",
+    "ask_dark_urine": "dark_urine",
+    "ask_appetite_loss": "appetite_loss",
     "ask_age": "age_years",
 }
 
