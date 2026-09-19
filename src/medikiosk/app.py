@@ -1596,13 +1596,33 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             try:
                 with MicrophoneStream(active_settings.mic_source) as stream:
                     log("kiosk_microphone", source=active_settings.mic_source)
+                    # Whether the patient is being heard is the first question to ask of any of
+                    # this, and it was not answerable from outside the process. Logged when the
+                    # answer changes rather than on a timer, so it stays quiet but never silent.
+                    listening: bool | None = None
+                    held = 0
                     while True:
                         frame = await asyncio.to_thread(read_frames, stream)
-                        if playback_active or capture_epoch != (session_id, guard.revision):
-                            continue
-                        if audio_queue.full():
-                            audio_queue.get_nowait()
-                        audio_queue.put_nowait(frame)
+                        open_now = not playback_active and capture_epoch == (
+                            session_id,
+                            guard.revision,
+                        )
+                        if open_now:
+                            if audio_queue.full():
+                                audio_queue.get_nowait()
+                            audio_queue.put_nowait(frame)
+                        if open_now != listening:
+                            if listening is not None:
+                                log(
+                                    "kiosk_microphone_listening" if open_now else "kiosk_microphone_deaf",
+                                    frames_in_previous_state=held,
+                                    reason=None
+                                    if open_now
+                                    else ("prompt_playing" if playback_active else "window_closed"),
+                                )
+                            listening = open_now
+                            held = 0
+                        held += 1
             except asyncio.CancelledError:
                 raise
             except Exception as exc:  # noqa: BLE001 - a dead microphone must not kill the session
@@ -2095,6 +2115,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         capture_epoch = (session_id, guard.revision)
                     continue
                 if command_type == "playback.state":
+                    # Only from a tablet that is actually playing. When the kiosk owns the
+                    # speaker this message reports the tablet's idea of playback, which is
+                    # nothing, and invalidate_audio() closes the capture window that playback
+                    # had just opened - so the patient was never heard again after the first
+                    # prompt. The tablet has no authority over a microphone it does not own.
+                    if kiosk_audio:
+                        continue
                     if (
                         command.get("session_id") == session_id
                         and command.get("revision") == guard.revision
