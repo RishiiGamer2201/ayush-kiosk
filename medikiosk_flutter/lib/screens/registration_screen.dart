@@ -17,11 +17,16 @@ class RegistrationScreen extends StatefulWidget {
   /// The language the patient chose; this screen's own words follow it.
   final String language;
 
+  /// Which of name, age or gender the flow is waiting for, so the patient can see where they
+  /// are. Null when the flow is not asking for a particular one.
+  final String? asking;
+
   const RegistrationScreen({
     super.key,
     required this.initialProfile,
     required this.cameraService,
     this.language = 'hi',
+    this.asking,
     required this.onRegister,
     required this.onScanCard,
     this.isScanning = false,
@@ -38,6 +43,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   late final TextEditingController _abhaController;
   String _selectedGender = 'Male';
   bool _showScannerOnMobile = false;
+  final FocusNode _nameFocus = FocusNode();
+  final FocusNode _ageFocus = FocusNode();
 
   @override
   void initState() {
@@ -49,10 +56,33 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   @override
+  void didUpdateWidget(RegistrationScreen old) {
+    super.didUpdateWidget(old);
+    // The flow echoes back what it has taken down, so a spoken answer appears in the form
+    // instead of vanishing. A field the patient is typing in is left alone: their hand beats
+    // an echo from the server.
+    final profile = widget.initialProfile;
+    if (!_nameFocus.hasFocus &&
+        profile.name.isNotEmpty &&
+        profile.name != _nameController.text) {
+      _nameController.text = profile.name;
+    }
+    final age = profile.age?.toString() ?? '';
+    if (!_ageFocus.hasFocus && age.isNotEmpty && age != _ageController.text) {
+      _ageController.text = age;
+    }
+    if (profile.gender.isNotEmpty && profile.gender != _selectedGender) {
+      _selectedGender = profile.gender;
+    }
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _ageController.dispose();
     _abhaController.dispose();
+    _nameFocus.dispose();
+    _ageFocus.dispose();
     super.dispose();
   }
 
@@ -63,6 +93,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _nameController.text.trim().isNotEmpty ||
       int.tryParse(_ageController.text.trim()) != null ||
       _selectedGender.isNotEmpty;
+
+  String _askingLabel() => switch (widget.asking) {
+        'name' => tr('patient_name', widget.language),
+        'age' => tr('age_years', widget.language),
+        'gender' => tr('gender', widget.language),
+        _ => '',
+      };
 
   void _submit() {
     final profile = PatientProfile(
@@ -89,6 +126,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               // Name Input
               TextField(
                 controller: _nameController,
+                focusNode: _nameFocus,
                 onChanged: (_) => setState(() {}),
                 style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 decoration: InputDecoration(
@@ -108,6 +146,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   Expanded(
                     child: TextField(
                       controller: _ageController,
+                      focusNode: _ageFocus,
                       onChanged: (_) => setState(() {}),
                       keyboardType: TextInputType.number,
                       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
@@ -261,6 +300,25 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         final body = Column(
           children: [
             // Top Title
+            if (widget.asking != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.arrow_downward_rounded, size: 18, color: Color(0xFF0D9488)),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${tr('asking_now', widget.language)}: ${_askingLabel()}',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0D9488),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Text(
               tr('patient_registration', widget.language),
               style: const TextStyle(

@@ -1014,9 +1014,18 @@ class _WorkflowBodyState extends State<WorkflowBody> {
 
     // 3. Registration Stage
     if (!confirming && stage == KioskStage.registration && widget.cameraService != null) {
+      // What the flow has taken down so far, so a spoken answer shows up in the form instead
+      // of vanishing, and the patient can see which field it is waiting for.
+      final taken = (screen['registration'] as Map?)?.cast<String, dynamic>() ?? const {};
+      final takenAge = taken['age'];
       return RegistrationScreen(
         language: client.language,
-        initialProfile: PatientProfile(),
+        asking: screen['asking'] as String?,
+        initialProfile: PatientProfile(
+          name: '${taken['name'] ?? ''}',
+          age: takenAge is num ? takenAge.toInt() : int.tryParse('${takenAge ?? ''}'),
+          gender: '${taken['gender'] ?? ''}',
+        ),
         cameraService: widget.cameraService!,
         // Previously this sent choose/'walk_in', which the flow read as the patient's *name* and
         // then rejected as their age - so the form's contents were discarded and the button

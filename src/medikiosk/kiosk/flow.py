@@ -1037,6 +1037,14 @@ class KioskFlow:
                 "headline": self.registration_prompt(key),
                 "input": "number" if key == "age" else "text",
                 "question_id": f"registration.{key}",
+                # What has been taken down so far, and which field is being asked. Without these
+                # the form cannot show a spoken answer, so the patient sees nothing happen and
+                # says it again into a screen that has already moved on.
+                "registration": {
+                    name: (None if value is None else str(value))
+                    for name, value in self.registration.items()
+                },
+                "asking": key,
                 "allowed_actions": base["allowed_actions"] + ["answer", "unknown", "refuse"],
             }
         if self.stage is Stage.HUB:

@@ -192,7 +192,12 @@ class KioskClient extends ChangeNotifier {
         }
         break;
       case 'error':
-        _error = msg['message'] as String? ?? 'Action failed. Please ask staff for help.';
+        // The server's text is a developer's sentence in English. When it names a code, say
+        // something the patient can act on, in their language.
+        final code = msg['code'] as String?;
+        _error = code == 'not_understood'
+            ? tr('not_understood', _language)
+            : msg['message'] as String? ?? 'Action failed. Please ask staff for help.';
         if (msg['action_id'] == _pending?['action_id']) {
           _pending = null;
           _processing = false;

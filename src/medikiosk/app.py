@@ -1538,11 +1538,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         spoken=spoken,
                         epoch=(expected_session, expected_revision),
                     )
-                except (ValueError, RuntimeError, OSError, sqlite3.Error):
+                except (ValueError, RuntimeError, OSError, sqlite3.Error) as error:
+                    # The reason, not just that there was one. "Please use the current prompt"
+                    # told neither the patient nor anyone reading the log what went wrong, and
+                    # every spoken answer that failed for any reason looked identical.
+                    log("spoken_turn_failed", failure=f"{type(error).__name__}: {error}")
                     await send(
                         {
                             "type": "error",
                             "stage": "flow",
+                            # A code as well as the text: the text is a developer's sentence in
+                            # English, and the patient needs something they can act on in their
+                            # own language.
+                            "code": "not_understood",
                             "message": "Please use the current prompt",
                         }
                     )
