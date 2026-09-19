@@ -418,6 +418,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Unfinished intakes, kept so a dropped connection can continue rather than restart.
     resume_states: dict[str, dict[str, Any]] = {}
     active_sessions: dict[str, dict[str, Any]] = {}
+    # Readings that finished while no connection owned the session; applied on resume.
+    parked_vitals: dict[str, Any] = {}
     leased_tokens: set[str] = set()
 
     def scan_owner(
@@ -1001,6 +1003,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "status": "complete" if intake_complete else "active",
             }
 
+        def apply_vitals(outcome: Any) -> None:
+            """File a finished measurement on this connection's flow and save it."""
+
+            if outcome is not None:
+                flow.record_vitals(
+                    outcome.bpm,
+                    outcome.confident,
+                    outcome.status,
+                    outcome.breaths_per_min,
+                    outcome.breath_confident,
+                )
+            else:
+                # Said plainly on the report. A number nobody measured is worse than none.
+                flow.record_vitals(None, False, "not measured")
+            persist()
+
         def persist() -> None:
             if transition_active:
                 return
@@ -1109,6 +1127,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         "flow": flow,
                         "guard": guard,
                         "captures": old_captures,
+                        "apply_vitals": apply_vitals,
                     }
                     leased_tokens.add(guard.token)
                     invalidate_audio()
@@ -1306,7 +1325,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 playback_active = False
                 playback_rate = 1.0
                 idle_seconds = active_settings.idle_timeout_s
-                active_sessions[session_id] = {"flow": flow, "guard": guard, "captures": {}}
+                active_sessions[session_id] = {
+                    "flow": flow,
+                    "guard": guard,
+                    "captures": {},
+                    "apply_vitals": apply_vitals,
+                }
                 local_language = active_settings.edge_language
                 local_language_locked = False
                 await send(
@@ -1350,16 +1374,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     except Exception as error:  # noqa: BLE001 - a camera fault is not a lost intake
                         log("vitals_failed", failure=f"{type(error).__name__}: {error}")
                         outcome = None
-                    if taken[0] != session_id:
-                        return
                     if outcome is not None:
-                        flow.record_vitals(
-                            outcome.bpm,
-                            outcome.confident,
-                            outcome.status,
-                            outcome.breaths_per_min,
-                            outcome.breath_confident,
-                        )
                         log(
                             "vitals_recorded",
                             bpm=outcome.bpm,
@@ -1369,10 +1384,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                             windows=outcome.windows_total,
                             face_seen=outcome.face_seen,
                         )
+                    # To whoever owns the session now - this connection, or the one the tablet
+                    # reconnected on while the camera was busy - or parked for the next.
+                    owner = active_sessions.get(taken[0])
+                    apply = owner.get("apply_vitals") if owner else None
+                    if apply is not None:
+                        apply(outcome)
                     else:
-                        # Said plainly on the report. A number nobody measured is worse than none.
-                        flow.record_vitals(None, False, "not measured")
-                    persist()
+                        parked_vitals[taken[0]] = outcome
 
                 task = asyncio.create_task(measure_behind(), name=f"vitals-{session_id}")
                 background_tasks.add(task)
@@ -2139,7 +2158,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     RedFlagAlert.model_validate(a) for a in restored.get("red_flags", [])
                 )
                 log("session_resumed", stage=flow.stage.value)
-            active_sessions[session_id] = {"flow": flow, "guard": guard, "captures": {}}
+            active_sessions[session_id] = {
+                "flow": flow,
+                "guard": guard,
+                "captures": {},
+                "apply_vitals": apply_vitals,
+            }
+            if session_id in parked_vitals and flow.vitals is None:
+                # The camera finished while nobody held the session.
+                apply_vitals(parked_vitals.pop(session_id))
+            else:
+                parked_vitals.pop(session_id, None)
             log(
                 "session_start",
                 mode="local" if use_local else "touch-only",

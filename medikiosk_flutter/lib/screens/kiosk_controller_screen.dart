@@ -1413,20 +1413,25 @@ class _WorkflowBodyState extends State<WorkflowBody> {
         Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text('${progress[0]} / ${progress[1]}')),
       const SizedBox(height: 12),
 
-      if (displayOptions.isNotEmpty && _holdForNotice) ...[
-        Row(children: [
-          const Icon(Icons.hearing_rounded, color: Color(0xFF0284C7)),
+      // The row stays once the reading ends, with the same height. When it vanished, the
+      // cards jumped up into the spot where "I have read it" had been, and a finger already on
+      // its way there pressed "No" on a consent notice.
+      if (displayOptions.isNotEmpty && client.currentStage == KioskStage.consent) ...[
+        SizedBox(height: 52, child: Row(children: [
+          Icon(_holdForNotice ? Icons.hearing_rounded : Icons.check_circle_outline_rounded,
+              color: const Color(0xFF0284C7)),
           const SizedBox(width: 8),
-          Expanded(child: Text(tr('listen_first', client.language),
+          Expanded(child: Text(tr(_holdForNotice ? 'listen_first' : 'answer_now', client.language),
               style: const TextStyle(fontSize: 16, color: Color(0xFF334155)))),
           const SizedBox(width: 8),
-          TactileButton(
-            onPressed: () => client.action('hush'),
-            height: 48,
-            borderRadius: BorderRadius.circular(12),
-            label: tr('read_it', client.language),
-          ),
-        ]),
+          if (_holdForNotice)
+            TactileButton(
+              onPressed: () => client.action('hush'),
+              height: 48,
+              borderRadius: BorderRadius.circular(12),
+              label: tr('read_it', client.language),
+            ),
+        ])),
         const SizedBox(height: 12),
       ],
       if (displayOptions.isNotEmpty) ...[
