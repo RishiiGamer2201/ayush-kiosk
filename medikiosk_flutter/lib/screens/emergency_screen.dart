@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+
+import '../l10n.dart';
 import '../widgets/tactile_button.dart';
 
 class EmergencyScreen extends StatelessWidget {
   final List<String> redFlags;
   final VoidCallback onStaffAcknowledged;
+  final String language;
 
   const EmergencyScreen({
+    this.language = 'hi',
     super.key,
     required this.redFlags,
     required this.onStaffAcknowledged,
@@ -46,24 +50,24 @@ class EmergencyScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 14),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'आपातकालीन चेतावनी (EMERGENCY)',
-                          style: TextStyle(
+                          tr('emergency_title', language),
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
                             color: Color(0xFF991B1B),
                             letterSpacing: 0.5,
                           ),
                         ),
-                        SizedBox(height: 2),
+                        const SizedBox(height: 2),
                         Text(
-                          'गंभीर लक्षण पाए गए हैं। तुरंत अस्पताल स्टाफ से संपर्क करें।',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFB91C1C)),
+                          tr('emergency_body', language),
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFB91C1C)),
                         ),
                       ],
                     ),
@@ -88,15 +92,15 @@ class EmergencyScreen extends StatelessWidget {
               height: 56,
               isDestructive: true,
               borderRadius: BorderRadius.circular(16),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.verified_user_rounded, color: Colors.white, size: 24),
-                  SizedBox(width: 8),
+                  const Icon(Icons.verified_user_rounded, color: Colors.white, size: 24),
+                  const SizedBox(width: 8),
                   Text(
-                    'स्टाफ़ द्वारा सत्यापित (Staff Verified) ✓',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white),
+                    '${tr('staff_verified', language)} ✓',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white),
                   ),
                 ],
               ),
@@ -110,8 +114,10 @@ class EmergencyScreen extends StatelessWidget {
   }
 
   Widget _buildFlagsList() {
+    // No invented flags: this screen used to fill an empty list with two symptoms nobody had
+    // reported, on the one screen where a wrong clinical statement matters most.
     final flags = redFlags.isEmpty
-        ? ['अत्यधिक सीने में दर्द (Severe Chest Pain)', 'सांस लेने में अत्यधिक कठिनाई (Critical Breathlessness)']
+        ? <String>[]
         : redFlags;
 
     return Container(

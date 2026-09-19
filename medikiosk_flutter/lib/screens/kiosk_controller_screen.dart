@@ -903,12 +903,19 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     final preview = screen['capture_preview'] as Map?;
     final stage = client.currentStage;
     final optionValues = client.options.map((o) => '${o['value']}').toList();
+    // A restart or withdrawal confirmation carries the stage it interrupts - that is where "no"
+    // returns to - so every screen chosen by stage alone drew that stage and swallowed the
+    // question. Restart did nothing at all on the language, hub, registration, ABHA, document,
+    // emergency, vitals and report screens. When the flow says it is asking for a confirmation,
+    // the general view answers it.
+    final confirming = screen['confirm'] != null;
+
     final headline = client.headline.toLowerCase();
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _watchPreview(stage == KioskStage.vitals));
 
     // 1. Language Stage
-    if (stage == KioskStage.language && client.options.isNotEmpty) {
+    if (!confirming && stage == KioskStage.language && client.options.isNotEmpty) {
       return LanguageScreen(
         selectedLanguage: client.language,
         codes: optionValues,
@@ -918,7 +925,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     }
 
     // 2. Hub Stage
-    if (stage == KioskStage.hub && optionValues.contains('clinical')) {
+    if (!confirming && stage == KioskStage.hub && optionValues.contains('clinical')) {
       return PathwayHubScreen(
         language: client.language,
         symptomsLabel: _optionLabel('clinical'),
@@ -934,7 +941,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     }
 
     // 3. Registration Stage
-    if (stage == KioskStage.registration && widget.cameraService != null) {
+    if (!confirming && stage == KioskStage.registration && widget.cameraService != null) {
       return RegistrationScreen(
         language: client.language,
         initialProfile: PatientProfile(),
@@ -954,7 +961,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     }
 
     // 4. ABHA Stage
-    if (stage == KioskStage.abha && widget.cameraService != null) {
+    if (!confirming && stage == KioskStage.abha && widget.cameraService != null) {
       return AbhaScreen(
         language: client.language,
         headline: client.headline,
@@ -968,7 +975,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     }
 
     // 5. Documents Stage
-    if (stage == KioskStage.documents && widget.cameraService != null) {
+    if (!confirming && stage == KioskStage.documents && widget.cameraService != null) {
       final lines = preview != null ? List<String>.from(preview['lines'] as List? ?? []) : <String>[];
       return DocumentsScreen(
         language: client.language,
@@ -983,19 +990,29 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     }
 
     // 6. Emergency Stage
-    if (stage == KioskStage.emergency) {
+    if (!confirming && stage == KioskStage.emergency) {
       return EmergencyScreen(
-        redFlags: client.redFlags.map((f) => '${f["label"] ?? f["title"] ?? f}').toList(),
-        onStaffAcknowledged: () => client.action('staff_ack'),
+        language: client.language,
+        // The alert carries rule_id, urgency, message and evidence - never "label" or "title",
+        // so this printed the whole object at a patient having an emergency.
+        redFlags: client.redFlags
+            .map((f) => '${f['message'] ?? f['label'] ?? f['title'] ?? ''}'.trim())
+            .where((message) => message.isNotEmpty)
+            .toList(),
+        // 'staff_ack' is not an action this flow has ever accepted, so this button did nothing
+        // at all. By the time the emergency screen shows, the intake is finalised and the
+        // patient is in the queue - report_ready fires first - so the one useful thing left is
+        // to clear the kiosk for the next patient, which is what restart does.
+        onStaffAcknowledged: () => client.action('restart'),
       );
     }
 
     // 7. Interview narrative accumulation
-    if (stage == KioskStage.interview && client.accumulate) return _narrativeBox(actions);
-    if (stage == KioskStage.vitals) return _vitalsView(actions);
+    if (!confirming && stage == KioskStage.interview && client.accumulate) return _narrativeBox(actions);
+    if (!confirming && stage == KioskStage.vitals) return _vitalsView(actions);
 
     // 8. Report Stage
-    if (stage == KioskStage.report && report != null) {
+    if (!confirming && stage == KioskStage.report && report != null) {
       final queueEntry = report['queue_entry'] as Map?;
       final tokenNum = queueEntry != null ? '${queueEntry['number']}' : 'A-42';
       final specialty = queueEntry != null ? '${queueEntry['specialty']}' : 'General Medicine OPD';

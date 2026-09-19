@@ -973,15 +973,20 @@ class KioskFlow:
             "input": "touch",
             "allowed_actions": ["repeat", "slower", "more_time", "help", "restart"],
         }
+        # These carry the stage they interrupt, because that is what the patient returns to on
+        # "no". A client that picks its screen from the stage alone would therefore draw that
+        # stage and never show the question, so the confirmation says what it is.
         if self.restart_confirm:
             return {
                 **base,
+                "confirm": "restart",
                 "headline": t("restart_confirm", self.language),
                 "options": options(),
             }
         if self.withdraw_confirm:
             return {
                 **base,
+                "confirm": "withdraw",
                 "headline": t("withdraw_confirm", self.language),
                 "options": options(),
             }
