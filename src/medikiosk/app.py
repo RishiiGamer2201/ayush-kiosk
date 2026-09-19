@@ -12,6 +12,7 @@ import tempfile
 import time
 import uuid
 import wave
+from collections.abc import Callable
 from contextlib import suppress
 from datetime import datetime, timezone
 from pathlib import Path
@@ -176,22 +177,49 @@ def _with_lead_in(wav_bytes: bytes, milliseconds: int = SPEAKER_LEAD_IN_MS) -> b
     return buffer.getvalue()
 
 
-def _play_on_speaker(wav_bytes: bytes, settings: Settings) -> None:
-    """Play one prompt through the kiosk's echo-cancelled sink.
+async def _play_on_speaker(
+    wav_bytes: bytes,
+    settings: Settings,
+    register: "Callable[[asyncio.subprocess.Process | None], None]",
+) -> None:
+    """Play one prompt through the kiosk's echo-cancelled sink, interruptibly.
 
     Playback must go to the cancellation sink rather than straight to the sound card, or the
     canceller has no reference for what the speaker emitted and the microphone hears the prompt
     as if a patient had said it.
+
+    The player is a child process rather than a blocking call on a worker thread, because a
+    patient who skips ahead must not have to listen to the rest of the previous prompt: a thread
+    running subprocess.run cannot be cancelled, so the old prompt used to play on over the new
+    screen. `register` hands the handle to the session so it can kill it.
     """
 
-    with tempfile.NamedTemporaryFile(suffix=".wav") as handle:
+    handle = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    try:
         handle.write(_with_lead_in(wav_bytes))
-        handle.flush()
-        subprocess.run(
-            ["paplay", f"--device={settings.speaker_sink}", handle.name],
-            check=False,
-            timeout=120,
+        handle.close()
+        process = await asyncio.create_subprocess_exec(
+            "paplay",
+            f"--device={settings.speaker_sink}",
+            handle.name,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
         )
+        register(process)
+        try:
+            await asyncio.wait_for(process.wait(), timeout=120)
+        except (asyncio.CancelledError, TimeoutError):
+            # Cancelled by a new turn, or a player that will not exit. Either way, stop the sound.
+            with contextlib.suppress(ProcessLookupError):
+                process.kill()
+            with contextlib.suppress(Exception):
+                await process.wait()
+            raise
+        finally:
+            register(None)
+    finally:
+        with contextlib.suppress(OSError):
+            os.unlink(handle.name)
 
 
 def _wav_pcm_and_rate(wav_bytes: bytes) -> tuple[bytes, int]:
@@ -868,6 +896,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             await send({"type": "tts.cancelled", "reason": reason})
 
         async def stream_tts(text: str, language: str | None, epoch: tuple[str, int]) -> None:
+            nonlocal playback_active, capture_epoch
             if not use_local or epoch != (session_id, guard.revision):
                 return
             lang = (language or local_language)[:2]
@@ -886,12 +915,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 if epoch != (session_id, guard.revision):
                     return
                 if kiosk_audio:
-                    # The kiosk's own speaker. paplay blocks for the length of the prompt, so it
-                    # runs off the event loop; the tablet is told the prompt is playing so it can
+                    # The kiosk's own speaker. The tablet is told the prompt is playing so it can
                     # show that, but it is sent no audio to play.
-                    await asyncio.to_thread(_play_on_speaker, wav_bytes, active_settings)
+                    playback_active = True
+                    log("speaker_start", language=lang, chars=len(text))
+                    try:
+                        await _play_on_speaker(wav_bytes, active_settings, set_speaker_process)
+                    finally:
+                        playback_active = False
+                        log("speaker_end", language=lang)
                     if epoch != (session_id, guard.revision):
                         return
+                    # Nobody else will open the capture window: the tablet only sends audio.start
+                    # for a microphone it owns. The patient may answer from here until the next
+                    # turn invalidates it.
+                    capture_epoch = (session_id, guard.revision)
                 else:
                     pcm, rate = _wav_pcm_and_rate(wav_bytes)
                     await send(
@@ -914,6 +952,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         audio_generation = 0
         capture_epoch: tuple[str, int] | None = None
         playback_active = False
+        # The player currently sounding on the kiosk's own speaker, if any, so that a new turn
+        # can silence it rather than letting two prompts overlap.
+        speaker_process: asyncio.subprocess.Process | None = None
         playback_rate = 1.0
         last_activity = time.monotonic()
         idle_seconds = active_settings.idle_timeout_s
@@ -1058,10 +1099,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 if speech is not None:
                     queue_speech(*speech)
 
+        def set_speaker_process(process: "asyncio.subprocess.Process | None") -> None:
+            nonlocal speaker_process
+            speaker_process = process
+
+        def silence_speaker() -> None:
+            """Stop whatever the kiosk is saying, now.
+
+            A patient who has already decided skips ahead; hearing the rest of the last prompt
+            over the new screen is how two voices end up talking at once.
+            """
+
+            nonlocal speaker_process
+            process = speaker_process
+            speaker_process = None
+            if process is not None and process.returncode is None:
+                with contextlib.suppress(ProcessLookupError):
+                    process.kill()
+
         def invalidate_audio() -> None:
             nonlocal audio_generation, capture_epoch
             audio_generation += 1
             capture_epoch = None
+            silence_speaker()
             local_segmenter.reset()
             if local_vad is not None:
                 local_vad.reset()
