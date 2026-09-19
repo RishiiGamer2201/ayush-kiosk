@@ -244,6 +244,35 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
                 child: Text(_scanError!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
               ),
             ),
+          // Nothing drew client.error, so every message it produced was invisible: a rejected
+          // action, a lost acknowledgment, a dropped connection, and the notice that staff have
+          // been called. Pressing "Staff help" looked exactly like pressing nothing.
+          if (_scanError == null && (_client.error ?? '').isNotEmpty)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                color: const Color(0xFFFEF3C7),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded, color: Color(0xFFB45309), size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _client.error!,
+                        style: const TextStyle(
+                          color: Color(0xFF92400E),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           WorkflowBody(
             key: ValueKey(_client.epoch),
             client: _client,

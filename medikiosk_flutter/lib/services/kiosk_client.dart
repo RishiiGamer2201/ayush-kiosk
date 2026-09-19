@@ -5,6 +5,8 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../l10n.dart';
+
 import '../models/models.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected, reconnecting }
@@ -107,7 +109,7 @@ class KioskClient extends ChangeNotifier {
           try {
             _process(jsonDecode(message) as Map<String, dynamic>);
           } catch (_) {
-            _error = 'Invalid response from the local kiosk.';
+            _error = tr('bad_response', _language);
             notifyListeners();
           }
         }
@@ -183,7 +185,10 @@ class KioskClient extends ChangeNotifier {
           _pending = null;
           _processing = false;
           _answerTimer?.cancel();
-          _error = null;
+          // Deliberately not clearing _error here. The server answers an action by running its
+          // effect and then acknowledging, so a message the effect just set - "staff have been
+          // called", above all - was wiped one message later and never reached the patient.
+          // action() already clears the error when the next action is sent.
         }
         break;
       case 'error':
@@ -225,12 +230,12 @@ class KioskClient extends ChangeNotifier {
         _processing = false;
         break;
       case 'session.idle':
-        _error = 'Still there? Say "more time" or touch the screen to continue.';
+        _error = tr('still_there', _language);
         break;
       case 'staff.alert':
         if (msg['alerts'] is List) _redFlags = List<Map<String, dynamic>>.from(msg['alerts']);
         // A help request is not an emergency screen or staff acknowledgment.
-        _error = 'Help requested; not yet acknowledged. Please seek staff directly.';
+        _error = tr('help_requested', _language);
         break;
       case 'flow.report':
         final report = msg['data'];
@@ -302,7 +307,7 @@ class KioskClient extends ChangeNotifier {
     _answerTimer?.cancel();
     _answerTimer = Timer(const Duration(seconds: 30), () {
       if (_disposed || _pending == null) return;
-      _error = 'Waiting for saved acknowledgment. Reconnect to retry safely.';
+      _error = tr('waiting_ack', _language);
       notifyListeners();
     });
     send(_pending!);
