@@ -201,6 +201,7 @@ class KioskClient extends ChangeNotifier {
         if (msg['stage'] == 'tts') _ttsController.add({...msg, 'type': 'tts.cancelled'});
         break;
       case 'flow.screen':
+        _screenAt = DateTime.now();
         _screen = Map<String, dynamic>.from(msg['data'] as Map);
         if (currentStage == KioskStage.language) {
           _lastReport = null;
@@ -214,6 +215,7 @@ class KioskClient extends ChangeNotifier {
         _captureEpoch = null;
         break;
       case 'clinical.question':
+        _screenAt = DateTime.now();
         _screen = {..._screen, 'stage': 'interview', 'headline': msg['text'], 'input': 'text', 'options': [],
           'allowed_actions': msg['allowed_actions'] is List ? List<String>.from(msg['allowed_actions']) :
             ['answer', 'unknown', 'refuse', 'repeat', 'help', 'restart', 'slower', 'more_time', 'cancel']};
@@ -267,6 +269,33 @@ class KioskClient extends ChangeNotifier {
   /// True while an action is awaiting its acknowledgment. action() ignores calls made in
   /// that window, so anything queueing answers must wait rather than fire and lose them.
   bool get isBusy => _pending != null;
+
+  // When the screen now on the tablet arrived. A tap that lands within a moment of it was
+  // almost certainly meant for the screen before, during the silence while this prompt was
+  // being synthesized.
+  DateTime _screenAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// How long an answer is ignored after its screen appears.
+  static const Duration _settle = Duration(milliseconds: 700);
+
+  /// Longer where the answer is a permission: the patient must have had a moment with it.
+  static const Duration _consentSettle = Duration(milliseconds: 2500);
+
+  /// How long this screen has been in front of the patient.
+  Duration get shownFor => DateTime.now().difference(_screenAt);
+
+  /// True while a tap would more likely be one meant for the screen before this one. Longer on a
+  /// consent screen, where the answer is a permission and the patient must have had a moment
+  /// with it.
+  bool get settling =>
+      shownFor < (currentStage == KioskStage.consent ? _consentSettle : _settle);
+
+  /// What remains of that window, for a caller that wants to rebuild when it ends.
+  Duration get settleRemaining {
+    final window = currentStage == KioskStage.consent ? _consentSettle : _settle;
+    final left = window - shownFor;
+    return left.isNegative ? Duration.zero : left;
+  }
 
   // Answers still to send, and the stage they were collected on. A screen that asks for several
   // things at once - registration wants a name, an age and a gender - hands them over together;

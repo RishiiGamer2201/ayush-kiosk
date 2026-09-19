@@ -210,12 +210,15 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
     // Footer buttons. Yes/No were removed: on option screens they duplicated the cards the
     // body already draws, and duplicating an answer in two places is how a patient ends up
     // pressing the wrong one.
+    // The footer is in the same place on every screen, so a second tap during the silence after
+    // a screen change answers the new question too - two questions skipped from one impatient
+    // hand. Held back for the same moment the cards are.
     final onDontKnow = (actions.contains('unknown') || stage == KioskStage.interview)
-        ? () => _client.action('unknown')
+        ? () { if (!_client.settling) _client.action('unknown'); }
         : null;
 
     final onSkip = (actions.contains('skip') || stage == KioskStage.abha || stage == KioskStage.documents || stage == KioskStage.interview)
-        ? () => _client.action('skip')
+        ? () { if (!_client.settling) _client.action('skip'); }
         : null;
 
     return KioskFrame(
@@ -353,7 +356,21 @@ class _WorkflowBodyState extends State<WorkflowBody> {
   int? _selectedSeverity;
 
   KioskClient get client => widget.client;
-  bool get _blocked => client.isProcessing || client.status != ConnectionStatus.connected;
+  Timer? _settleTimer;
+
+  /// Answering is held back for a moment after a screen appears.
+  ///
+  /// Measured on the tablet: a screen change is followed by two to four seconds of silence while
+  /// the prompt is synthesized. Someone who taps again because nothing happened has that second
+  /// tap delivered to the screen that just appeared, at the spot the previous card occupied. On
+  /// the consent screen that produced a recorded permission one second after the screen arrived,
+  /// with the notice neither heard nor read. Tapping twice when nothing happens is not a mistake
+  /// for the patients this is built for; it is the obvious thing to do.
+  ///
+  /// The cards are visibly not ready during the window rather than silently eating the tap, and
+  /// the way out - repeat, staff help, back, restart - stays live throughout.
+  bool get _blocked =>
+      client.isProcessing || client.status != ConnectionStatus.connected || client.settling;
 
   List<String> _filteredActions(List<String> actions) {
     if (!widget.hideSystemActions) {
@@ -939,6 +956,13 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     // the general view answers it.
     final confirming = screen['confirm'] != null;
 
+    if (client.settling) {
+      _settleTimer?.cancel();
+      _settleTimer = Timer(client.settleRemaining + const Duration(milliseconds: 20), () {
+        if (mounted) setState(() {});
+      });
+    }
+
     final headline = client.headline.toLowerCase();
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _watchPreview(stage == KioskStage.vitals));
@@ -1392,5 +1416,11 @@ class _WorkflowBodyState extends State<WorkflowBody> {
   };
 
   @override
-  void dispose() { _previewTimer?.cancel(); _answer.dispose(); _narrative.dispose(); super.dispose(); }
+  void dispose() {
+    _previewTimer?.cancel();
+    _settleTimer?.cancel();
+    _answer.dispose();
+    _narrative.dispose();
+    super.dispose();
+  }
 }
