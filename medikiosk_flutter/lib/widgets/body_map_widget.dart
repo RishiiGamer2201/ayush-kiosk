@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n.dart';
 import 'tactile_button.dart';
 
 enum BodyZone { head, chest, abdomen, back, arms, legs }
@@ -17,6 +18,9 @@ class BodyZoneData {
     required this.icon,
     required this.commonComplaint,
   });
+
+  /// The part's name in the patient's language - what gets written into their description.
+  String label(String language) => tr('zone_${zone.name}', language);
 }
 
 const Map<BodyZone, BodyZoneData> bodyZoneMetadata = {
@@ -69,7 +73,10 @@ class BodyMapWidget extends StatefulWidget {
   final BodyZone? selectedZone;
   final ValueChanged<BodyZone> onZoneSelected;
   final String? selectedLaterality; // 'left', 'right', 'both'
+  /// Null hides the side buttons. A button that does nothing when pressed teaches the
+  /// patient the screen is broken.
   final ValueChanged<String>? onLateralitySelected;
+  final String language;
 
   const BodyMapWidget({
     super.key,
@@ -77,6 +84,7 @@ class BodyMapWidget extends StatefulWidget {
     required this.onZoneSelected,
     this.selectedLaterality,
     this.onLateralitySelected,
+    this.language = 'hi',
   });
 
   @override
@@ -101,12 +109,12 @@ class _BodyMapWidgetState extends State<BodyMapWidget> {
                   isSelected: !_isBackView,
                   height: 46,
                   borderRadius: BorderRadius.circular(14),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('👤', style: TextStyle(fontSize: 18)),
-                      SizedBox(width: 6),
-                      Text('आगे (Front)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                      const Icon(Icons.person_rounded, size: 20),
+                      const SizedBox(width: 6),
+                      Text(tr('front_view', widget.language), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
                     ],
                   ),
                 ),
@@ -116,12 +124,12 @@ class _BodyMapWidgetState extends State<BodyMapWidget> {
                   isSelected: _isBackView,
                   height: 46,
                   borderRadius: BorderRadius.circular(14),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('🔄', style: TextStyle(fontSize: 18)),
-                      SizedBox(width: 6),
-                      Text('पीछे (Back)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                      const Icon(Icons.flip_rounded, size: 20),
+                      const SizedBox(width: 6),
+                      Text(tr('back_view', widget.language), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
                     ],
                   ),
                 ),
@@ -138,8 +146,13 @@ class _BodyMapWidgetState extends State<BodyMapWidget> {
                   Expanded(
                     flex: 3,
                     child: Center(
-                      child: AspectRatio(
-                        aspectRatio: 0.65,
+                      // The figure and its tap zones are drawn at fixed pixel positions for a
+                      // 160x310 canvas. Scaling the canvas, rather than the box, keeps the taps
+                      // on the parts they belong to and the legs on screen whatever the height.
+                      child: FittedBox(
+                        child: SizedBox(
+                        width: 160,
+                        height: 310,
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
@@ -206,11 +219,13 @@ class _BodyMapWidgetState extends State<BodyMapWidget> {
                             ),
                           ],
                         ),
+                        ),
                       ),
                     ),
                   ),
 
                   // Right Side: Laterality selector buttons (Left / Right / Both)
+                  if (widget.onLateralitySelected != null)
                   Expanded(
                     flex: 2,
                     child: Column(
@@ -229,7 +244,7 @@ class _BodyMapWidgetState extends State<BodyMapWidget> {
                           child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text('🫲', style: TextStyle(fontSize: 20)),
+                              Icon(Icons.west_rounded, size: 20),
                               SizedBox(width: 8),
                               Text('बायाँ (Left)', style: TextStyle(fontWeight: FontWeight.w800)),
                             ],
@@ -244,7 +259,7 @@ class _BodyMapWidgetState extends State<BodyMapWidget> {
                           child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text('🫱', style: TextStyle(fontSize: 20)),
+                              Icon(Icons.east_rounded, size: 20),
                               SizedBox(width: 8),
                               Text('दायाँ (Right)', style: TextStyle(fontWeight: FontWeight.w800)),
                             ],
@@ -259,7 +274,7 @@ class _BodyMapWidgetState extends State<BodyMapWidget> {
                           child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text('👥', style: TextStyle(fontSize: 20)),
+                              Icon(Icons.swap_horiz_rounded, size: 20),
                               SizedBox(width: 8),
                               Text('दोनों (Both)', style: TextStyle(fontWeight: FontWeight.w800)),
                             ],

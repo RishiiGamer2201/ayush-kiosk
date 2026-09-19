@@ -36,6 +36,8 @@ class RenderClient extends KioskClient {
   void setNarrative(String value) { text = value; }
   @override
   void action(String action, [dynamic value]) { sent.add([action, value]); }
+  @override
+  String? get questionId => data['question_id'] as String?;
 }
 
 Future<void> render(WidgetTester tester, RenderClient client) async {
@@ -45,12 +47,16 @@ Future<void> render(WidgetTester tester, RenderClient client) async {
 }
 
 void main() {
-  testWidgets('submit sends current typed value including zero', (tester) async {
-    final client = RenderClient()..data = {'stage': 'registration', 'input': 'number',
-      'headline': 'Age?', 'allowed_actions': ['answer', 'unknown']};
+  testWidgets('the form sends the typed age, including zero, to the field that asked for it', (tester) async {
+    final client = RenderClient()..data = {'stage': 'registration', 'input': 'text', 'asking': 'age',
+      'question_id': 'registration.age', 'headline': 'Age?', 'allowed_actions': ['answer', 'unknown']};
     await render(tester, client);
-    await tester.enterText(find.byType(TextField), '0');
-    await tester.tap(find.text('Submit answer'));
+    // Name, then age. No card scanner on this screen: the card has its own screen next.
+    expect(find.byType(TextField), findsNWidgets(2));
+    expect(find.textContaining('Scan'), findsNothing);
+    await tester.enterText(find.byType(TextField).at(1), '0');
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Register and continue'));
     expect(client.sent, [['answer', '0']]);
     await tester.pumpWidget(const SizedBox());
     client.dispose();
@@ -92,9 +98,13 @@ void main() {
     final client = RenderClient()..data = {'stage': 'registration', 'input': 'text',
       'headline': 'உங்கள் பெயர் என்ன?', 'language': 'ta', 'allowed_actions': ['answer', 'help']};
     await render(tester, client);
-    expect(find.text('பதிலை அனுப்பு'), findsOneWidget);
+    expect(find.textContaining('பதிவு செய்து தொடரவும்'), findsOneWidget);
+    expect(find.textContaining('Register and continue'), findsNothing);
+    // The help chip lives on the generic body; the form leaves help to the frame's footer.
+    client.data = {'stage': 'interview', 'input': 'text', 'headline': 'எப்போதிருந்து?',
+      'language': 'ta', 'allowed_actions': ['answer', 'help']};
+    await render(tester, client);
     expect(find.text('உதவி கேள்'), findsOneWidget);
-    expect(find.text('Submit answer'), findsNothing);
     await tester.pumpWidget(const SizedBox());
     client.dispose();
   });
@@ -133,7 +143,11 @@ void main() {
     client.data = {'stage': 'report'};
     await render(tester, client);
     expect(find.textContaining('Token 7'), findsOneWidget);
-    expect(find.text('Download slip (PDF)'), findsOneWidget);
+    // No slip is wired, so the one button says what it does instead of promising a PDF.
+    expect(find.text('Download slip (PDF)'), findsNothing);
+    expect(find.text('Finish - next patient'), findsOneWidget);
+    // The camera's reading is on every report - here, honestly, that there was none.
+    expect(find.text('Not measured'), findsOneWidget);
     expect(find.text('Prakriti incomplete — no classification'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     client.dispose();

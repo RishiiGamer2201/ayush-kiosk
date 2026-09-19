@@ -232,7 +232,10 @@ class _KioskControllerScreenState extends State<KioskControllerScreen> {
         ? () { if (!_client.settling) _client.action('unknown'); }
         : null;
 
-    final onSkip = (actions.contains('skip') || stage == KioskStage.abha || stage == KioskStage.documents || stage == KioskStage.interview)
+    // Only what the server will accept. It stopped allowing skip on the ABHA screen when the
+    // number became mandatory, and a footer that offers it anyway teaches the patient the
+    // kiosk ignores them.
+    final onSkip = actions.contains('skip')
         ? () { if (!_client.settling) _client.action('skip'); }
         : null;
 
@@ -351,12 +354,14 @@ class WorkflowBody extends StatefulWidget {
 }
 
 class _OptionMeta {
-  final String emoji;
+  /// A Material icon rather than an emoji: one family that every tablet can draw, in the
+  /// card's own colour, and never an empty box where the picture should be.
+  final IconData icon;
   final String sub;
   final Color color;
 
   const _OptionMeta({
-    required this.emoji,
+    required this.icon,
     required this.sub,
     required this.color,
   });
@@ -415,12 +420,18 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     // unmarried card drew a wedding ring; 'male' inside "female"; 'yes' inside "eyes"; 'no'
     // inside "normal" and "not". Latin needles must now start a word. The short ambiguous ones
     // must be the whole word, while longer ones stay prefixes so 'burn' still reaches "burning".
-    // Indic scripts have no word boundary Dart's \b can find, so they keep plain containment.
+    // Indic scripts have no word boundary Dart's \b can find. Long needles keep plain
+    // containment; the short ones must be a whole word, split on spaces and punctuation - 'ना'
+    // sat inside 'बढ़ना' and drew a red cross on "thin build", which a patient who does not
+    // read takes for "No".
     bool matches(String haystack, String needle) {
       if (RegExp(r'^[a-z_ ]+$').hasMatch(needle)) {
         final escaped = RegExp.escape(needle);
         final pattern = needle.length <= 4 ? r'\b' + escaped + r'\b' : r'\b' + escaped;
         return RegExp(pattern).hasMatch(haystack);
+      }
+      if (needle.length <= 3) {
+        return haystack.split(RegExp(r'[\s,;:.?!/()|-]+')).contains(needle);
       }
       return haystack.contains(needle);
     }
@@ -431,326 +442,326 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     // 1. Yes / Confirm
     if (has('yes') || has('हाँ') || has('हो') || has('true') ||
         has('सहन कर सकते') || has('can tolerate')) {
-      return const _OptionMeta(emoji: '✓', sub: 'Yes / हाँ', color: Color(0xFF16A34A));
+      return const _OptionMeta(icon: Icons.check_rounded, sub: 'Yes / हाँ', color: Color(0xFF16A34A));
     }
 
     // 2. No / Negative
     if (has('no') || has('नहीं') || has('ना') || has('false') ||
         has('cannot') || has('सहन नहीं')) {
-      return const _OptionMeta(emoji: '✕', sub: 'No / नहीं', color: Color(0xFFDC2626));
+      return const _OptionMeta(icon: Icons.close_rounded, sub: 'No / नहीं', color: Color(0xFFDC2626));
     }
 
     // 3. Pain sensations
     if (has('sharp') || has('चुभन') || has('stabbing') || has('सुई')) {
-      return const _OptionMeta(emoji: '💥', sub: 'Sharp', color: Color(0xFFEF4444));
+      return const _OptionMeta(icon: Icons.flare_rounded, sub: 'Sharp', color: Color(0xFFEF4444));
     }
     if (has('burn') || has('जलन') || has('flame') || has('आग')) {
-      return const _OptionMeta(emoji: '🔥', sub: 'Burning', color: Color(0xFFF97316));
+      return const _OptionMeta(icon: Icons.local_fire_department_rounded, sub: 'Burning', color: Color(0xFFF97316));
     }
     if (has('dull') || has('भारीपन') || has('heavy') || has('ache') || has('बोझ')) {
-      return const _OptionMeta(emoji: '😣', sub: 'Heavy / Dull', color: Color(0xFFEAB308));
+      return const _OptionMeta(icon: Icons.fitness_center_rounded, sub: 'Heavy / Dull', color: Color(0xFFEAB308));
     }
     if (has('throb') || has('झटका') || has('jolt') || has('electric') || has('धड़कन')) {
-      return const _OptionMeta(emoji: '⚡', sub: 'Jolt / Throbbing', color: Color(0xFF8B5CF6));
+      return const _OptionMeta(icon: Icons.bolt_rounded, sub: 'Jolt / Throbbing', color: Color(0xFF8B5CF6));
     }
     if (has('cramp') || has('ऐंठन') || has('मरोड़')) {
-      return const _OptionMeta(emoji: '🌀', sub: 'Cramp', color: Color(0xFFD97706));
+      return const _OptionMeta(icon: Icons.cyclone_rounded, sub: 'Cramp', color: Color(0xFFD97706));
     }
     if (has('stiff') || has('अकड़न') || has('जकड़न')) {
-      return const _OptionMeta(emoji: '🧱', sub: 'Stiffness', color: Color(0xFF64748B));
+      return const _OptionMeta(icon: Icons.lock_rounded, sub: 'Stiffness', color: Color(0xFF64748B));
     }
     if (has('tingl') || has('झुनझुनी') || has('सुन्न') || has('numb')) {
-      return const _OptionMeta(emoji: '✨', sub: 'Numb / Tingling', color: Color(0xFF6366F1));
+      return const _OptionMeta(icon: Icons.grain_rounded, sub: 'Numb / Tingling', color: Color(0xFF6366F1));
     }
 
     // 4. Severity
     if (has('mild') || has('थोड़ा') || has('कम') || has('slight') || has('हल्का')) {
-      return const _OptionMeta(emoji: '🙂', sub: 'Mild', color: Color(0xFF22C55E));
+      return const _OptionMeta(icon: Icons.sentiment_satisfied_rounded, sub: 'Mild', color: Color(0xFF22C55E));
     }
     if (has('moderate') || has('मध्यम') || has('medium')) {
-      return const _OptionMeta(emoji: '😐', sub: 'Moderate', color: Color(0xFFEAB308));
+      return const _OptionMeta(icon: Icons.sentiment_neutral_rounded, sub: 'Moderate', color: Color(0xFFEAB308));
     }
     if (has('severe') || has('ज्यादा') || has('तेज') || has('काफी')) {
-      return const _OptionMeta(emoji: '😣', sub: 'Severe', color: Color(0xFFF97316));
+      return const _OptionMeta(icon: Icons.sentiment_dissatisfied_rounded, sub: 'Severe', color: Color(0xFFF97316));
     }
     if (has('worst') || has('बहुत ज्यादा') || has('unbearable') || has('असहनीय')) {
-      return const _OptionMeta(emoji: '😭', sub: 'Very Severe', color: Color(0xFFEF4444));
+      return const _OptionMeta(icon: Icons.sentiment_very_dissatisfied_rounded, sub: 'Very Severe', color: Color(0xFFEF4444));
     }
 
     // 5. Clinical Symptoms
     if (has('fever') || has('बुखार') || has('temp') || has('ताप')) {
-      return const _OptionMeta(emoji: '🌡️', sub: 'Fever', color: Color(0xFFEA580C));
+      return const _OptionMeta(icon: Icons.thermostat_rounded, sub: 'Fever', color: Color(0xFFEA580C));
     }
     if (has('chill') || has('कंपकंपी') || has('ठंड लगना') || has('shiver')) {
-      return const _OptionMeta(emoji: '🥶', sub: 'Chills', color: Color(0xFF0284C7));
+      return const _OptionMeta(icon: Icons.ac_unit_rounded, sub: 'Chills', color: Color(0xFF0284C7));
     }
     if (has('cough') || has('खांसी') || has('khansi')) {
-      return const _OptionMeta(emoji: '😷', sub: 'Cough', color: Color(0xFF0284C7));
+      return const _OptionMeta(icon: Icons.masks_rounded, sub: 'Cough', color: Color(0xFF0284C7));
     }
     if (has('cold') || has('जुकाम') || has('sneeze') || has('छींक')) {
-      return const _OptionMeta(emoji: '🤧', sub: 'Cold', color: Color(0xFF0284C7));
+      return const _OptionMeta(icon: Icons.sick_rounded, sub: 'Cold', color: Color(0xFF0284C7));
     }
     if (has('phlegm') || has('बलगम') || has('mucus') || has('कफ')) {
-      return const _OptionMeta(emoji: '💧', sub: 'Phlegm', color: Color(0xFF0D9488));
+      return const _OptionMeta(icon: Icons.water_drop_rounded, sub: 'Phlegm', color: Color(0xFF0D9488));
     }
     if (has('vomit') || has('उल्टी') || has('nausea') || has('मिचलाना')) {
-      return const _OptionMeta(emoji: '🤮', sub: 'Vomiting', color: Color(0xFF16A34A));
+      return const _OptionMeta(icon: Icons.sick_outlined, sub: 'Vomiting', color: Color(0xFF16A34A));
     }
     if (has('diarrhea') || has('दस्त') || has('loose') || has('पेचिश')) {
-      return const _OptionMeta(emoji: '💧', sub: 'Diarrhea', color: Color(0xFF0284C7));
+      return const _OptionMeta(icon: Icons.water_drop_outlined, sub: 'Diarrhea', color: Color(0xFF0284C7));
     }
     if (has('constipat') || has('कब्ज') || has('hard stool') || has('सूखा मल')) {
-      return const _OptionMeta(emoji: '🪨', sub: 'Constipation', color: Color(0xFF78716C));
+      return const _OptionMeta(icon: Icons.block_rounded, sub: 'Constipation', color: Color(0xFF78716C));
     }
     if (has('bleed') || has('खून') || has('blood') || has('रक्त')) {
-      return const _OptionMeta(emoji: '🩸', sub: 'Bleeding', color: Color(0xFFDC2626));
+      return const _OptionMeta(icon: Icons.bloodtype_rounded, sub: 'Bleeding', color: Color(0xFFDC2626));
     }
     if (has('swell') || has('सूजन') || has('edema') || has('शोथ')) {
-      return const _OptionMeta(emoji: '🩹', sub: 'Swelling', color: Color(0xFFD97706));
+      return const _OptionMeta(icon: Icons.healing_rounded, sub: 'Swelling', color: Color(0xFFD97706));
     }
     if (has('weak') || has('कमजोरी') || has('fatigue') || has('थकान')) {
-      return const _OptionMeta(emoji: '🥱', sub: 'Fatigue', color: Color(0xFFD97706));
+      return const _OptionMeta(icon: Icons.battery_1_bar_rounded, sub: 'Fatigue', color: Color(0xFFD97706));
     }
     if (has('dizzy') || has('चक्कर') || has('giddiness') || has('faint')) {
-      return const _OptionMeta(emoji: '💫', sub: 'Dizziness', color: Color(0xFF8B5CF6));
+      return const _OptionMeta(icon: Icons.blur_circular_rounded, sub: 'Dizziness', color: Color(0xFF8B5CF6));
     }
     if (has('sweat') || has('पसीना') || has('perspir') || has('sweda')) {
-      return const _OptionMeta(emoji: '💦', sub: 'Sweat', color: Color(0xFF0284C7));
+      return const _OptionMeta(icon: Icons.water_rounded, sub: 'Sweat', color: Color(0xFF0284C7));
     }
 
     // 6. Body Anatomy & Traits
     if (has('head') || has('सिर') || has('migraine') || has('माथा')) {
-      return const _OptionMeta(emoji: '🤕', sub: 'Head', color: Color(0xFF7C3AED));
+      return const _OptionMeta(icon: Icons.face_rounded, sub: 'Head', color: Color(0xFF7C3AED));
     }
     if (has('eye') || has('आँख') || has('दृष्टि') || has('blink')) {
-      return const _OptionMeta(emoji: '👁️', sub: 'Eye', color: Color(0xFF0891B2));
+      return const _OptionMeta(icon: Icons.visibility_rounded, sub: 'Eye', color: Color(0xFF0891B2));
     }
     if (has('ear') || has('कान')) {
-      return const _OptionMeta(emoji: '👂', sub: 'Ear', color: Color(0xFF4F46E5));
+      return const _OptionMeta(icon: Icons.hearing_rounded, sub: 'Ear', color: Color(0xFF4F46E5));
     }
     if (has('throat') || has('गला')) {
-      return const _OptionMeta(emoji: '🗣️', sub: 'Throat', color: Color(0xFF9333EA));
+      return const _OptionMeta(icon: Icons.record_voice_over_rounded, sub: 'Throat', color: Color(0xFF9333EA));
     }
     if (has('tooth') || has('दांत') || has('dental')) {
-      return const _OptionMeta(emoji: '🦷', sub: 'Teeth', color: Color(0xFF0D9488));
+      return const _OptionMeta(icon: Icons.health_and_safety_rounded, sub: 'Teeth', color: Color(0xFF0D9488));
     }
     if (has('mouth') || has('मुंह') || has('tongue') || has('जीभ')) {
-      return const _OptionMeta(emoji: '👅', sub: 'Mouth / Tongue', color: Color(0xFFDB2777));
+      return const _OptionMeta(icon: Icons.tag_faces_rounded, sub: 'Mouth / Tongue', color: Color(0xFFDB2777));
     }
     if (has('chest') || has('छाती') || has('heart') || has('दिल') || has('सीना')) {
-      return const _OptionMeta(emoji: '🫀', sub: 'Chest / Heart', color: Color(0xFFE11D48));
+      return const _OptionMeta(icon: Icons.favorite_rounded, sub: 'Chest / Heart', color: Color(0xFFE11D48));
     }
     if (has('breath') || has('सांस') || has('lung') || has('फेफड़े')) {
-      return const _OptionMeta(emoji: '🫁', sub: 'Breathing', color: Color(0xFF0284C7));
+      return const _OptionMeta(icon: Icons.air_rounded, sub: 'Breathing', color: Color(0xFF0284C7));
     }
     if (has('stomach') || has('पेट') || has('abdomen') || has('digest') || has('हाजमा')) {
-      return const _OptionMeta(emoji: '🤢', sub: 'Stomach', color: Color(0xFF16A34A));
+      return const _OptionMeta(icon: Icons.restaurant_rounded, sub: 'Stomach', color: Color(0xFF16A34A));
     }
     if (has('back') || has('पीठ') || has('कमर') || has('spine')) {
-      return const _OptionMeta(emoji: '🧍', sub: 'Back / Spine', color: Color(0xFFD97706));
+      return const _OptionMeta(icon: Icons.accessibility_new_rounded, sub: 'Back / Spine', color: Color(0xFFD97706));
     }
     if (has('shoulder') || has('कंधा') || has('arm') || has('हाथ') || has('बाँह')) {
-      return const _OptionMeta(emoji: '💪', sub: 'Arms / Shoulders', color: Color(0xFF2563EB));
+      return const _OptionMeta(icon: Icons.front_hand_rounded, sub: 'Arms / Shoulders', color: Color(0xFF2563EB));
     }
     if (has('leg') || has('पैर') || has('knee') || has('घुटना') || has('ankle')) {
-      return const _OptionMeta(emoji: '🦵', sub: 'Legs / Knee', color: Color(0xFF0D9488));
+      return const _OptionMeta(icon: Icons.directions_walk_rounded, sub: 'Legs / Knee', color: Color(0xFF0D9488));
     }
     if (has('joint') || has('जोड़') || has('bone') || has('हड्डी') || has('sound') || has('आवाज़')) {
-      return const _OptionMeta(emoji: '🦴', sub: 'Joints / Bone', color: Color(0xFFD97706));
+      return const _OptionMeta(icon: Icons.hub_rounded, sub: 'Joints / Bone', color: Color(0xFFD97706));
     }
     if (has('skin') || has('त्वचा') || has('rash') || has('खुजली') || has('तिल') || has('mole')) {
-      return const _OptionMeta(emoji: '🫧', sub: 'Skin', color: Color(0xFFCA8A04));
+      return const _OptionMeta(icon: Icons.texture_rounded, sub: 'Skin', color: Color(0xFFCA8A04));
     }
     if (has('hair') || has('बाल') || has('kesha') || has('curly') || has('grey') || has('bald') || has('गंजा')) {
-      return const _OptionMeta(emoji: '💇', sub: 'Hair', color: Color(0xFF78716C));
+      return const _OptionMeta(icon: Icons.content_cut_rounded, sub: 'Hair', color: Color(0xFF78716C));
     }
     if (has('wrinkle') || has('झुर्रियाँ') || has('vali')) {
-      return const _OptionMeta(emoji: '🧓', sub: 'Wrinkles', color: Color(0xFFD97706));
+      return const _OptionMeta(icon: Icons.elderly_rounded, sub: 'Wrinkles', color: Color(0xFFD97706));
     }
 
     // 7. Demographics & Relations
     // Unmarried first: 'विवाहित' is contained in 'अविवाहित', and Devanagari has no word
     // boundary a regex can use, so the more specific word has to be tested first.
     if (has('unmarried') || has('अविवाहित') || has('single')) {
-      return const _OptionMeta(emoji: '👤', sub: 'Unmarried', color: Color(0xFF0284C7));
+      return const _OptionMeta(icon: Icons.person_rounded, sub: 'Unmarried', color: Color(0xFF0284C7));
     }
     if (has('married') || has('विवाहित') || has('rings')) {
-      return const _OptionMeta(emoji: '💍', sub: 'Married', color: Color(0xFFDB2777));
+      return const _OptionMeta(icon: Icons.diamond_rounded, sub: 'Married', color: Color(0xFFDB2777));
     }
     if (has('divorce') || has('तलाक')) {
-      return const _OptionMeta(emoji: '💔', sub: 'Divorcee', color: Color(0xFF64748B));
+      return const _OptionMeta(icon: Icons.heart_broken_rounded, sub: 'Divorcee', color: Color(0xFF64748B));
     }
     if (has('widow') || has('विधवा') || has('विधुर')) {
-      return const _OptionMeta(emoji: '🕯️', sub: 'Widow', color: Color(0xFF475569));
+      return const _OptionMeta(icon: Icons.person_off_rounded, sub: 'Widow', color: Color(0xFF475569));
     }
     if (has('nuclear') || has('एकल')) {
-      return const _OptionMeta(emoji: '👨‍👩‍👧', sub: 'Nuclear', color: Color(0xFF0D9488));
+      return const _OptionMeta(icon: Icons.family_restroom_rounded, sub: 'Nuclear', color: Color(0xFF0D9488));
     }
     if (has('joint') || has('संयुक्त') || has('group')) {
-      return const _OptionMeta(emoji: '👨‍👩‍👧‍👦', sub: 'Joint', color: Color(0xFF2563EB));
+      return const _OptionMeta(icon: Icons.groups_rounded, sub: 'Joint', color: Color(0xFF2563EB));
     }
 
     // 8. Occupation
     if (has('desk') || has('office') || has('दफ्तर') || has('कंप्यूटर')) {
-      return const _OptionMeta(emoji: '💻', sub: 'Desk Work', color: Color(0xFF2563EB));
+      return const _OptionMeta(icon: Icons.computer_rounded, sub: 'Desk Work', color: Color(0xFF2563EB));
     }
     if (has('field') || has('खेत') || has('किसान') || has('क्षेत्र')) {
-      return const _OptionMeta(emoji: '🚜', sub: 'Field Work', color: Color(0xFF16A34A));
+      return const _OptionMeta(icon: Icons.agriculture_rounded, sub: 'Field Work', color: Color(0xFF16A34A));
     }
     if (has('homemaker') || has('गृहिणी') || has('घर')) {
-      return const _OptionMeta(emoji: '🏡', sub: 'Homemaker', color: Color(0xFFDB2777));
+      return const _OptionMeta(icon: Icons.home_rounded, sub: 'Homemaker', color: Color(0xFFDB2777));
     }
     if (has('student') || has('छात्र') || has('विद्यार्थी')) {
-      return const _OptionMeta(emoji: '🎓', sub: 'Student', color: Color(0xFF7C3AED));
+      return const _OptionMeta(icon: Icons.school_rounded, sub: 'Student', color: Color(0xFF7C3AED));
     }
     if (has('business') || has('व्यापार') || has('दुकान')) {
-      return const _OptionMeta(emoji: '💼', sub: 'Business', color: Color(0xFFD97706));
+      return const _OptionMeta(icon: Icons.work_rounded, sub: 'Business', color: Color(0xFFD97706));
     }
 
     // 9. Religion
     if (has('hindu') || has('हिन्दू')) {
-      return const _OptionMeta(emoji: '🕉️', sub: 'Hindu', color: Color(0xFFEA580C));
+      return const _OptionMeta(icon: Icons.temple_hindu_rounded, sub: 'Hindu', color: Color(0xFFEA580C));
     }
     if (has('muslim') || has('मुस्लिम')) {
-      return const _OptionMeta(emoji: '☪️', sub: 'Muslim', color: Color(0xFF16A34A));
+      return const _OptionMeta(icon: Icons.mosque_rounded, sub: 'Muslim', color: Color(0xFF16A34A));
     }
     if (has('christian') || has('ईसाई')) {
-      return const _OptionMeta(emoji: '✝️', sub: 'Christian', color: Color(0xFF2563EB));
+      return const _OptionMeta(icon: Icons.church_rounded, sub: 'Christian', color: Color(0xFF2563EB));
     }
     if (has('sikh') || has('सिख')) {
-      return const _OptionMeta(emoji: '☬', sub: 'Sikh', color: Color(0xFFD97706));
+      return const _OptionMeta(icon: Icons.account_balance_rounded, sub: 'Sikh', color: Color(0xFFD97706));
     }
 
     // 10. Income
     if (has('lakh') || has('लाख') || has('income') || has('आय') || has('coin')) {
-      return const _OptionMeta(emoji: '💰', sub: 'Income', color: Color(0xFF059669));
+      return const _OptionMeta(icon: Icons.currency_rupee_rounded, sub: 'Income', color: Color(0xFF059669));
     }
 
     // 11. Diet & Food
     if (has('vegetarian') || has('शाकाहारी') || has('निरामिष') || has('leaf')) {
-      return const _OptionMeta(emoji: '🥗', sub: 'Vegetarian', color: Color(0xFF16A34A));
+      return const _OptionMeta(icon: Icons.eco_rounded, sub: 'Vegetarian', color: Color(0xFF16A34A));
     }
     if (has('mixed') || has('मिश्रित') || has('non') || has('meat') || has('chicken') || has('fish')) {
-      return const _OptionMeta(emoji: '🍲', sub: 'Mixed / Non-veg', color: Color(0xFFEA580C));
+      return const _OptionMeta(icon: Icons.set_meal_rounded, sub: 'Mixed / Non-veg', color: Color(0xFFEA580C));
     }
     if (has('snack') || has('जलपान') || has('नाश्ता')) {
-      return const _OptionMeta(emoji: '🥪', sub: 'Snacks', color: Color(0xFFD97706));
+      return const _OptionMeta(icon: Icons.bakery_dining_rounded, sub: 'Snacks', color: Color(0xFFD97706));
     }
     if (has('meal') || has('भोजन') || has('खाना') || has('plate') || has('diet')) {
-      return const _OptionMeta(emoji: '🍽️', sub: 'Meal', color: Color(0xFF10B981));
+      return const _OptionMeta(icon: Icons.restaurant_menu_rounded, sub: 'Meal', color: Color(0xFF10B981));
     }
     if (has('water') || has('पानी') || has('प्यास') || has('fluid') || has('लीटर') || has('litre')) {
-      return const _OptionMeta(emoji: '🚰', sub: 'Water', color: Color(0xFF0284C7));
+      return const _OptionMeta(icon: Icons.local_drink_rounded, sub: 'Water', color: Color(0xFF0284C7));
     }
 
     // 12. Habits & Speed
     if (has('fast') || has('first') || has('जल्दी') || has('पहले')) {
-      return const _OptionMeta(emoji: '⚡', sub: 'Fast', color: Color(0xFFEAB308));
+      return const _OptionMeta(icon: Icons.speed_rounded, sub: 'Fast', color: Color(0xFFEAB308));
     }
     if (has('slow') || has('last') || has('धीरे') || has('अन्त') || has('बाद')) {
-      return const _OptionMeta(emoji: '🐢', sub: 'Slow', color: Color(0xFF0D9488));
+      return const _OptionMeta(icon: Icons.slow_motion_video_rounded, sub: 'Slow', color: Color(0xFF0D9488));
     }
     if (has('at_par') || has('साथ-साथ') || has('same time') || has('बराबर')) {
-      return const _OptionMeta(emoji: '⏱️', sub: 'Moderate', color: Color(0xFF2563EB));
+      return const _OptionMeta(icon: Icons.timer_rounded, sub: 'Moderate', color: Color(0xFF2563EB));
     }
     if (has('smoke') || has('बीड़ी') || has('सिगरेट') || has('tobacco')) {
-      return const _OptionMeta(emoji: '🚭', sub: 'Tobacco', color: Color(0xFF78716C));
+      return const _OptionMeta(icon: Icons.smoke_free_rounded, sub: 'Tobacco', color: Color(0xFF78716C));
     }
     if (has('alcohol') || has('शराब') || has('मद्यपान')) {
-      return const _OptionMeta(emoji: '🍷', sub: 'Alcohol', color: Color(0xFFDC2626));
+      return const _OptionMeta(icon: Icons.wine_bar_rounded, sub: 'Alcohol', color: Color(0xFFDC2626));
     }
 
     // 13. Sleep & Weather
     if (has('sleep') || has('नींद') || has('bedtime')) {
-      return const _OptionMeta(emoji: '😴', sub: 'Sleep', color: Color(0xFF6366F1));
+      return const _OptionMeta(icon: Icons.bedtime_rounded, sub: 'Sleep', color: Color(0xFF6366F1));
     }
     if (has('cold') || has('ठंड') || has('शीत') || has('winter')) {
-      return const _OptionMeta(emoji: '❄️', sub: 'Cold Weather', color: Color(0xFF0284C7));
+      return const _OptionMeta(icon: Icons.ac_unit_rounded, sub: 'Cold Weather', color: Color(0xFF0284C7));
     }
     if (has('hot') || has('गर्मी') || has('धूप') || has('summer')) {
-      return const _OptionMeta(emoji: '☀️', sub: 'Hot Weather', color: Color(0xFFEA580C));
+      return const _OptionMeta(icon: Icons.wb_sunny_rounded, sub: 'Hot Weather', color: Color(0xFFEA580C));
     }
     if (has('damp') || has('rain') || has('बरसात') || has('आर्द्र')) {
-      return const _OptionMeta(emoji: '🌧️', sub: 'Rain / Damp', color: Color(0xFF0284C7));
+      return const _OptionMeta(icon: Icons.umbrella_rounded, sub: 'Rain / Damp', color: Color(0xFF0284C7));
     }
 
     // 14. Mental & Emotions
     if (has('angry') || has('गुस्सा') || has('क्रोध')) {
-      return const _OptionMeta(emoji: '😡', sub: 'Angry', color: Color(0xFFDC2626));
+      return const _OptionMeta(icon: Icons.mood_bad_rounded, sub: 'Angry', color: Color(0xFFDC2626));
     }
     if (has('anxious') || has('चिंता') || has('घबराहट')) {
-      return const _OptionMeta(emoji: '😰', sub: 'Anxious', color: Color(0xFF8B5CF6));
+      return const _OptionMeta(icon: Icons.psychology_alt_rounded, sub: 'Anxious', color: Color(0xFF8B5CF6));
     }
     if (has('calm') || has('शांत') || has('quiet')) {
-      return const _OptionMeta(emoji: '🧘', sub: 'Calm', color: Color(0xFF10B981));
+      return const _OptionMeta(icon: Icons.self_improvement_rounded, sub: 'Calm', color: Color(0xFF10B981));
     }
     if (has('memory') || has('याद') || has('स्मृति')) {
-      return const _OptionMeta(emoji: '🧠', sub: 'Memory', color: Color(0xFF7C3AED));
+      return const _OptionMeta(icon: Icons.psychology_rounded, sub: 'Memory', color: Color(0xFF7C3AED));
     }
 
     // 15. Time & General
     if (has('morning') || has('सुबह')) {
-      return const _OptionMeta(emoji: '🌅', sub: 'Morning', color: Color(0xFFF59E0B));
+      return const _OptionMeta(icon: Icons.wb_twilight_rounded, sub: 'Morning', color: Color(0xFFF59E0B));
     }
     if (has('afternoon') || has('दोपहर')) {
-      return const _OptionMeta(emoji: '☀️', sub: 'Afternoon', color: Color(0xFFEA580C));
+      return const _OptionMeta(icon: Icons.wb_sunny_rounded, sub: 'Afternoon', color: Color(0xFFEA580C));
     }
     if (has('night') || has('रात')) {
-      return const _OptionMeta(emoji: '🌙', sub: 'Night', color: Color(0xFF6366F1));
+      return const _OptionMeta(icon: Icons.nightlight_round, sub: 'Night', color: Color(0xFF6366F1));
     }
     if (has('male') || has('पुरुष')) {
-      return const _OptionMeta(emoji: '👨', sub: 'Male', color: Color(0xFF2563EB));
+      return const _OptionMeta(icon: Icons.male_rounded, sub: 'Male', color: Color(0xFF2563EB));
     }
     if (has('female') || has('महिला')) {
-      return const _OptionMeta(emoji: '👩', sub: 'Female', color: Color(0xFFDB2777));
+      return const _OptionMeta(icon: Icons.female_rounded, sub: 'Female', color: Color(0xFFDB2777));
     }
     if (has('self') || has('myself') || has('walk_in') || has('खुद')) {
-      return const _OptionMeta(emoji: '👤', sub: 'Self', color: Color(0xFF0D9488));
+      return const _OptionMeta(icon: Icons.person_rounded, sub: 'Self', color: Color(0xFF0D9488));
     }
     if (has('parent') || has('guardian') || has('माता') || has('पिता') || has('अभिभावक')) {
-      return const _OptionMeta(emoji: '👪', sub: 'Parent', color: Color(0xFF7C3AED));
+      return const _OptionMeta(icon: Icons.family_restroom_rounded, sub: 'Parent', color: Color(0xFF7C3AED));
     }
     // Before the caregiver rule: "Family attendant" is family, and contains 'attendant'.
     if (has('proxy') || has('family') || has('attendant') || has('रिश्तेदार') || has('परिवार')) {
-      return const _OptionMeta(emoji: '👥', sub: 'Family', color: Color(0xFF0D9488));
+      return const _OptionMeta(icon: Icons.people_rounded, sub: 'Family', color: Color(0xFF0D9488));
     }
     if (has('caregiver') || has('carer') || has('देखभाल')) {
-      return const _OptionMeta(emoji: '🤝', sub: 'Caregiver', color: Color(0xFF0891B2));
+      return const _OptionMeta(icon: Icons.volunteer_activism_rounded, sub: 'Caregiver', color: Color(0xFF0891B2));
     }
     if (has('other') || has('अन्य') || has('dots')) {
-      return const _OptionMeta(emoji: '✨', sub: 'Other', color: Color(0xFF64748B));
+      return const _OptionMeta(icon: Icons.more_horiz_rounded, sub: 'Other', color: Color(0xFF64748B));
     }
 
     // 16. Contextual Headline fallback (when option text is simple like a number or phrase)
     if (headlineHas('खाना') || headlineHas('भोजन') || headlineHas('diet') || headlineHas('meal')) {
-      return const _OptionMeta(emoji: '🍽️', sub: '', color: Color(0xFF10B981));
+      return const _OptionMeta(icon: Icons.restaurant_menu_rounded, sub: '', color: Color(0xFF10B981));
     }
     if (headlineHas('पानी') || headlineHas('water') || headlineHas('thirst') || headlineHas('fluid')) {
-      return const _OptionMeta(emoji: '🚰', sub: '', color: Color(0xFF0284C7));
+      return const _OptionMeta(icon: Icons.local_drink_rounded, sub: '', color: Color(0xFF0284C7));
     }
     if (headlineHas('नींद') || headlineHas('sleep')) {
-      return const _OptionMeta(emoji: '😴', sub: '', color: Color(0xFF6366F1));
+      return const _OptionMeta(icon: Icons.bedtime_rounded, sub: '', color: Color(0xFF6366F1));
     }
     if (headlineHas('दर्द') || headlineHas('pain')) {
-      return const _OptionMeta(emoji: '🩹', sub: '', color: Color(0xFFEA580C));
+      return const _OptionMeta(icon: Icons.healing_rounded, sub: '', color: Color(0xFFEA580C));
     }
     if (headlineHas('दवा') || headlineHas('medicine')) {
-      return const _OptionMeta(emoji: '💊', sub: '', color: Color(0xFF0D9488));
+      return const _OptionMeta(icon: Icons.medication_rounded, sub: '', color: Color(0xFF0D9488));
     }
     if (headlineHas('मौसम') || headlineHas('weather')) {
-      return const _OptionMeta(emoji: '⛅', sub: '', color: Color(0xFF0284C7));
+      return const _OptionMeta(icon: Icons.cloud_rounded, sub: '', color: Color(0xFF0284C7));
     }
 
     // 17. Clean index-based distinct option badge (NEVER STETHOSCOPE)
     const fallbackBadges = [
-      _OptionMeta(emoji: '🎯', sub: '', color: Color(0xFF0D9488)),
-      _OptionMeta(emoji: '🔹', sub: '', color: Color(0xFF0284C7)),
-      _OptionMeta(emoji: '🔸', sub: '', color: Color(0xFFD97706)),
-      _OptionMeta(emoji: '💠', sub: '', color: Color(0xFF7C3AED)),
-      _OptionMeta(emoji: '⭐', sub: '', color: Color(0xFFEAB308)),
-      _OptionMeta(emoji: '✨', sub: '', color: Color(0xFF059669)),
-      _OptionMeta(emoji: '🏷️', sub: '', color: Color(0xFFDB2777)),
-      _OptionMeta(emoji: '📌', sub: '', color: Color(0xFFEA580C)),
+      _OptionMeta(icon: Icons.circle_rounded, sub: '', color: Color(0xFF0D9488)),
+      _OptionMeta(icon: Icons.square_rounded, sub: '', color: Color(0xFF0284C7)),
+      _OptionMeta(icon: Icons.change_history_rounded, sub: '', color: Color(0xFFD97706)),
+      _OptionMeta(icon: Icons.hexagon_rounded, sub: '', color: Color(0xFF7C3AED)),
+      _OptionMeta(icon: Icons.star_rounded, sub: '', color: Color(0xFFEAB308)),
+      _OptionMeta(icon: Icons.auto_awesome_rounded, sub: '', color: Color(0xFF059669)),
+      _OptionMeta(icon: Icons.label_rounded, sub: '', color: Color(0xFFDB2777)),
+      _OptionMeta(icon: Icons.push_pin_rounded, sub: '', color: Color(0xFFEA580C)),
     ];
     return fallbackBadges[index % fallbackBadges.length];
   }
@@ -776,7 +787,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(meta.emoji, style: TextStyle(fontSize: 32, color: meta.color)),
+          Icon(meta.icon, size: 40, color: meta.color),
           const SizedBox(height: 5),
           Text(label, textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
@@ -805,7 +816,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(meta.emoji, style: TextStyle(fontSize: glyph)),
+          Icon(meta.icon, size: glyph, color: meta.color),
           const SizedBox(height: 5),
           Text(
             buttonLabel,
@@ -834,7 +845,10 @@ class _WorkflowBodyState extends State<WorkflowBody> {
           client.action(action, value);
         }
       },
-      height: 54,
+      height: action == 'confirm' ? 64 : 54,
+      // The one that moves the patient on is green and taller. On the review screen it sat
+      // at the bottom of nine identical white "Edit answer" buttons, looking like a tenth.
+      isSuccess: action == 'confirm',
       borderRadius: BorderRadius.circular(14),
       label: label,
     ),
@@ -954,48 +968,58 @@ class _WorkflowBodyState extends State<WorkflowBody> {
       const SizedBox(height: 12),
       // Tapping the figure writes the part into the description, so a patient who cannot write
       // can still say where it hurts. Speaking into the box works exactly as before.
-      // The figure needs real width to be tappable; below that it is dropped rather than
-      // squeezed into something nobody can hit. Speaking and typing carry the screen on their
-      // own, so losing it on a narrow display costs the patient nothing.
       Builder(builder: (context) {
         // The screen itself, not the layout box: this sits in a scroll view, so the box says
         // nothing about whether the patient can reach the Proceed button underneath. On a
         // display too small for both, the figure is the part to drop - speaking and typing
         // carry the screen on their own.
         final screen = MediaQuery.sizeOf(context);
-        if (screen.width < 700 || screen.height < 700) return const SizedBox.shrink();
-        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        final showMap = screen.width >= 700 && screen.height >= 700;
+        final entry = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          TextField(controller: _narrative, minLines: 4, maxLines: 8, maxLength: 1500,
+            style: const TextStyle(fontSize: 18),
+            onChanged: client.setNarrative,
+            decoration: InputDecoration(border: const OutlineInputBorder(),
+              hintText: tr('narrative_example', client.language))),
+          const SizedBox(height: 8),
+          SizedBox(height: 58, child: FilledButton.icon(
+            onPressed: _blocked || client.narrative.trim().isEmpty ? null : client.submitNarrative,
+            icon: const Icon(Icons.arrow_forward_rounded),
+            label: Text(tr('proceed', client.language), style: const TextStyle(fontSize: 18)))),
+        ]);
+        if (!showMap) return entry;
+        final map = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text(tr('where_hurts', client.language),
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
           const SizedBox(height: 6),
           SizedBox(
-            height: 300,
+            height: 340,
             child: BodyMapWidget(
-          selectedZone: _selectedZone,
-          onZoneSelected: (zone) {
-            final meta = bodyZoneMetadata[zone]!;
-            final part = client.language == 'hi' ? meta.labelHi : meta.labelEn;
-            setState(() {
-              _selectedZone = zone;
-              final existing = client.narrative.trim();
-              client.setNarrative(existing.isEmpty ? part : '$existing, $part');
-            });
-          },
+              language: client.language,
+              selectedZone: _selectedZone,
+              onZoneSelected: (zone) {
+                final part = bodyZoneMetadata[zone]!.label(client.language);
+                setState(() {
+                  _selectedZone = zone;
+                  // A trailing space, so what they type next does not run into the part name.
+                  final existing = client.narrative.trim();
+                  client.setNarrative(existing.isEmpty ? '$part ' : '$existing, $part ');
+                });
+              },
             ),
           ),
         ]);
+        // Landscape: figure beside the box, so Proceed is on screen without scrolling. A button
+        // below the fold is a button a first-time patient never finds.
+        if (screen.width > screen.height) {
+          return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(width: 380, child: map),
+            const SizedBox(width: 20),
+            Expanded(child: entry),
+          ]);
+        }
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [map, const SizedBox(height: 12), entry]);
       }),
-      const SizedBox(height: 12),
-      TextField(controller: _narrative, minLines: 3, maxLines: 6, maxLength: 1500,
-        style: const TextStyle(fontSize: 18),
-        onChanged: client.setNarrative,
-        decoration: InputDecoration(border: const OutlineInputBorder(),
-          hintText: tr('narrative_example', client.language))),
-      const SizedBox(height: 8),
-      SizedBox(height: 58, child: FilledButton.icon(
-        onPressed: _blocked || client.narrative.trim().isEmpty ? null : client.submitNarrative,
-        icon: const Icon(Icons.arrow_forward_rounded),
-        label: Text(tr('proceed', client.language), style: const TextStyle(fontSize: 18)))),
       if (_filteredActions(actions).isNotEmpty)
         Wrap(children: [
           for (final action in _filteredActions(actions))
@@ -1060,7 +1084,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
     }
 
     // 3. Registration Stage
-    if (!confirming && stage == KioskStage.registration && widget.cameraService != null) {
+    if (!confirming && stage == KioskStage.registration) {
       // What the flow has taken down so far, so a spoken answer shows up in the form instead
       // of vanishing, and the patient can see which field it is waiting for.
       final taken = (screen['registration'] as Map?)?.cast<String, dynamic>() ?? const {};
@@ -1073,7 +1097,6 @@ class _WorkflowBodyState extends State<WorkflowBody> {
           age: takenAge is num ? takenAge.toInt() : int.tryParse('${takenAge ?? ''}'),
           gender: '${taken['gender'] ?? ''}',
         ),
-        cameraService: widget.cameraService!,
         // Previously this sent choose/'walk_in', which the flow read as the patient's *name* and
         // then rejected as their age - so the form's contents were discarded and the button
         // appeared dead. Send what the patient actually typed, in the order the flow asks.
@@ -1085,9 +1108,6 @@ class _WorkflowBodyState extends State<WorkflowBody> {
           if (profile.age != null) 'registration.age': '${profile.age}',
           if (profile.gender.isNotEmpty) 'registration.gender': profile.gender,
         }),
-        onScanCard: widget.onScanCard ?? () {},
-        isScanning: widget.isScanning,
-        scanError: widget.scanError,
       );
     }
 
@@ -1097,7 +1117,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
         language: client.language,
         headline: client.headline,
         onSubmitAbha: client.submitAbha,
-        onSkip: () => client.action('skip'),
+        onSkip: actions.contains('skip') ? () => client.action('skip') : null,
         cameraService: widget.cameraService!,
         onScanCard: widget.onScanCard ?? () {},
         isScanning: widget.isScanning,
@@ -1107,7 +1127,17 @@ class _WorkflowBodyState extends State<WorkflowBody> {
 
     // 5. Documents Stage
     if (!confirming && stage == KioskStage.documents && widget.cameraService != null) {
-      final lines = preview != null ? List<String>.from(preview['lines'] as List? ?? []) : <String>[];
+      // Every page kept so far, then the one under review. A page the camera could read
+      // nothing off still gets a line, so the patient sees the scan happened.
+      final lines = <String>[];
+      final kept = screen['documents'] as List? ?? const [];
+      for (final (index, document) in kept.indexed) {
+        final pageLines = List<String>.from((document as Map)['lines'] as List? ?? const []);
+        lines.add('${tr('doc_page', client.language)} ${index + 1}'
+            '${pageLines.isEmpty ? ' - ${tr('doc_unreadable', client.language)}' : ''}');
+        lines.addAll(pageLines);
+      }
+      if (preview != null) lines.addAll(List<String>.from(preview['lines'] as List? ?? []));
       return DocumentsScreen(
         language: client.language,
         headline: client.headline,
@@ -1162,7 +1192,8 @@ class _WorkflowBodyState extends State<WorkflowBody> {
           gender: '${registered['gender'] ?? ''}'.trim().isEmpty
               ? 'Not stated'
               : '${registered['gender']}',
-          abhaNumber: report['abha_number'] as String?,
+          // The report carries the last four digits, or the address whole - never the number.
+          abhaNumber: (report['patient'] as Map?)?['abha_last4'] as String?,
         ),
         clinicalAnswers: const [],
         extractedDocumentLines: const [],
@@ -1401,8 +1432,8 @@ class _WorkflowBodyState extends State<WorkflowBody> {
                   choice.$2,
                   choice.$1,
                   choice.$1 == 'yes'
-                      ? const _OptionMeta(emoji: '✓', sub: '', color: Color(0xFF16A34A))
-                      : const _OptionMeta(emoji: '✕', sub: '', color: Color(0xFFDC2626)),
+                      ? const _OptionMeta(icon: Icons.check_rounded, sub: '', color: Color(0xFF16A34A))
+                      : const _OptionMeta(icon: Icons.close_rounded, sub: '', color: Color(0xFFDC2626)),
                 ),
               ),
             ),
@@ -1415,11 +1446,11 @@ class _WorkflowBodyState extends State<WorkflowBody> {
       if (displayOptions.isEmpty && stage == KioskStage.interview && client.answerUi == 'duration') ...[
         LayoutBuilder(builder: (context, constraints) {
           const choices = [
-            ('dur_today', '☀️'),
-            ('dur_yesterday', '🌙'),
-            ('dur_few_days', '📅'),
-            ('dur_week', '🗓️'),
-            ('dur_month_plus', '⏳'),
+            ('dur_today', Icons.wb_sunny_rounded),
+            ('dur_yesterday', Icons.nightlight_round),
+            ('dur_few_days', Icons.calendar_view_week_rounded),
+            ('dur_week', Icons.calendar_month_rounded),
+            ('dur_month_plus', Icons.hourglass_bottom_rounded),
           ];
           final isWide = constraints.maxWidth > 550;
           return GridView.builder(
@@ -1435,7 +1466,7 @@ class _WorkflowBodyState extends State<WorkflowBody> {
             itemBuilder: (context, i) => _buildAnswerCard(
               tr(choices[i].$1, client.language),
               tr(choices[i].$1, client.language),
-              _OptionMeta(emoji: choices[i].$2, sub: '', color: const Color(0xFF0D9488)),
+              _OptionMeta(icon: choices[i].$2, sub: '', color: const Color(0xFF0D9488)),
             ),
           );
         }),
@@ -1477,7 +1508,8 @@ class _WorkflowBodyState extends State<WorkflowBody> {
         Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('${entry.$1 + 1}. ${entry.$2['question']}'),
           Text(entry.$2['status'] == 'answered' ? '${entry.$2['answer']}' : '${entry.$2['status']}'),
-          button('${tr('edit_answer', client.language)} ${entry.$1 + 1}', 'edit', entry.$2['id']),
+          if (entry.$2['editable'] != false)
+            button('${tr('edit_answer', client.language)} ${entry.$1 + 1}', 'edit', entry.$2['id']),
         ])),
 
       if (stage == KioskStage.unavailable) Text(tr('unsupported', client.language)),

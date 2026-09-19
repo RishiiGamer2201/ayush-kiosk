@@ -168,6 +168,8 @@ class PatientProfile {
 
   String get maskedAbha {
     if (abhaNumber == null || abhaNumber!.isEmpty) return 'Walk-in (No ABHA)';
+    // An ABHA address is an address, like an email; masking it to "@abdm" says nothing.
+    if (abhaNumber!.contains('@')) return abhaNumber!;
     final clean = abhaNumber!.replaceAll('-', '').replaceAll(' ', '');
     if (clean.length < 4) return clean;
     final last4 = clean.substring(clean.length - 4);

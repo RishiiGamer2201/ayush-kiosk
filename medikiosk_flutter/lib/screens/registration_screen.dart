@@ -1,18 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../l10n.dart';
-import 'package:camera/camera.dart';
 import '../models/models.dart';
-import '../services/camera_service.dart';
 import '../widgets/tactile_button.dart';
 
 class RegistrationScreen extends StatefulWidget {
   final PatientProfile initialProfile;
-  final CameraService cameraService;
   final ValueChanged<PatientProfile> onRegister;
-  final VoidCallback onScanCard;
-  final bool isScanning;
-  final String? scanError;
 
   /// The language the patient chose; this screen's own words follow it.
   final String language;
@@ -24,13 +18,9 @@ class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({
     super.key,
     required this.initialProfile,
-    required this.cameraService,
     this.language = 'hi',
     this.asking,
     required this.onRegister,
-    required this.onScanCard,
-    this.isScanning = false,
-    this.scanError,
   });
 
   @override
@@ -40,9 +30,7 @@ class RegistrationScreen extends StatefulWidget {
 class _RegistrationScreenState extends State<RegistrationScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _ageController;
-  late final TextEditingController _abhaController;
   String _selectedGender = 'Male';
-  bool _showScannerOnMobile = false;
   final FocusNode _nameFocus = FocusNode();
   final FocusNode _ageFocus = FocusNode();
 
@@ -51,7 +39,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     super.initState();
     _nameController = TextEditingController(text: widget.initialProfile.name);
     _ageController = TextEditingController(text: widget.initialProfile.age?.toString() ?? '');
-    _abhaController = TextEditingController(text: widget.initialProfile.abhaNumber ?? '');
     _selectedGender = widget.initialProfile.gender;
   }
 
@@ -80,7 +67,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   void dispose() {
     _nameController.dispose();
     _ageController.dispose();
-    _abhaController.dispose();
     _nameFocus.dispose();
     _ageFocus.dispose();
     super.dispose();
@@ -106,8 +92,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       name: _nameController.text.trim(),
       age: int.tryParse(_ageController.text.trim()),
       gender: _selectedGender,
-      abhaNumber: _abhaController.text.trim().isEmpty ? null : _abhaController.text.trim(),
-      isWalkIn: _abhaController.text.trim().isEmpty,
     );
     widget.onRegister(profile);
   }
@@ -116,7 +100,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 650;
         final isBounded = constraints.hasBoundedHeight;
 
         Widget buildFormFields() {
@@ -196,73 +179,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   _buildGenderPill('Other', tr('other_gender', widget.language), Icons.transgender_rounded),
                 ],
               ),
-              // The ABHA number is asked for on its own screen straight after this one.
-              // Asking for it twice invites two different answers.
+              // The ABHA card - number, address or a scan of it - is asked for on its own screen
+              // straight after this one. Asking for it twice invites two different answers.
             ],
           );
         }
-
-        final cameraContent = Container(
-          decoration: BoxDecoration(
-            color: Colors.black87,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFF0D9488), width: 2),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (widget.cameraService.controller?.value.isInitialized == true)
-                CameraPreview(widget.cameraService.controller!)
-              else
-                Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.camera_alt_rounded, color: Colors.white54, size: 40),
-                      const SizedBox(height: 8),
-                      Text(tr('camera_ready', widget.language), style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                    ],
-                  ),
-                ),
-              // Scanner Guidelines
-              Center(
-                child: Container(
-                  width: 200,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFF5EEAD4), width: 2),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              // Scan Button overlay
-              Positioned(
-                bottom: 8,
-                left: 12,
-                right: 12,
-                child: TactileButton(
-                  onPressed: widget.onScanCard,
-                  height: 44,
-                  backgroundColor: const Color(0xFF0D9488),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.camera_rounded, color: Colors.white, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        widget.isScanning ? tr('scanning', widget.language) : tr('scan_id', widget.language),
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
 
         final submitButton = TactileButton(
           onPressed: _hasSomethingToSend ? _submit : null,
@@ -315,74 +236,23 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               textAlign: TextAlign.center,
             ),
 
-            if (!isWide) ...[
-              const SizedBox(height: 6),
-              // Tab Toggle on narrow screens
-              Row(
-                children: [
-                  Expanded(
-                    child: TactileButton(
-                      onPressed: () => setState(() => _showScannerOnMobile = false),
-                      isSelected: !_showScannerOnMobile,
-                      height: 38,
-                      borderRadius: BorderRadius.circular(10),
-                      child: const Text('👤 मरीज़ विवरण (Form)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TactileButton(
-                      onPressed: () => setState(() => _showScannerOnMobile = true),
-                      isSelected: _showScannerOnMobile,
-                      height: 38,
-                      borderRadius: BorderRadius.circular(10),
-                      child: const Text('📷 कार्ड स्कैन (Scan)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-
             const SizedBox(height: 8),
 
-            // Form Area
+            // Form Area. One column whatever the width: the card scanner that used to sit
+            // beside it belongs to the ABHA screen, where the card is actually asked for.
             if (isBounded)
               Expanded(
-                child: isWide
-                    ? Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            flex: 5,
-                            child: SingleChildScrollView(
-                              physics: const BouncingScrollPhysics(),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  buildFormFields(),
-                                  const SizedBox(height: 12),
-                                  submitButton,
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(flex: 4, child: cameraContent),
-                        ],
-                      )
-                    : (_showScannerOnMobile
-                        ? cameraContent
-                        : SingleChildScrollView(
-                            physics: const BouncingScrollPhysics(),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                buildFormFields(),
-                                const SizedBox(height: 12),
-                                submitButton,
-                              ],
-                            ),
-                          )),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      buildFormFields(),
+                      const SizedBox(height: 12),
+                      submitButton,
+                    ],
+                  ),
+                ),
               )
             else
               SingleChildScrollView(

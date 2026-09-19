@@ -333,7 +333,7 @@ class KioskClient extends ChangeNotifier {
       return;
     }
     if (_pending != null) return;
-    final asked = _questionId;
+    final asked = questionId;
     if (asked == null || !_queued.containsKey(asked)) {
       // The flow is asking something this screen did not collect. Answering it with whatever is
       // next in the queue is how an age ends up in a gender field.

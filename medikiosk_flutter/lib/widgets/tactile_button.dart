@@ -47,6 +47,7 @@ class TactileButton extends StatefulWidget {
 
 class _TactileButtonState extends State<TactileButton> {
   bool _isPressed = false;
+  Offset? _downAt;
 
   @override
   Widget build(BuildContext context) {
@@ -84,10 +85,20 @@ class _TactileButtonState extends State<TactileButton> {
     final double shadowHeight = _isPressed ? 1.0 : 5.0;
 
     return GestureDetector(
-      onTapDown: enabled ? (_) => setState(() => _isPressed = true) : null,
+      onTapDown: enabled
+          ? (details) {
+              _downAt = details.globalPosition;
+              setState(() => _isPressed = true);
+            }
+          : null,
       onTapUp: enabled
-          ? (_) {
+          ? (details) {
               setState(() => _isPressed = false);
+              // A finger that travelled is scrolling, not pressing. With no scrollable behind
+              // it this recognizer wins the arena on touch-down and would fire on any lift -
+              // two swipes down the review screen confirmed it and granted the cloud consent.
+              final from = _downAt;
+              if (from != null && (details.globalPosition - from).distance > 24) return;
               widget.onPressed?.call();
             }
           : null,

@@ -123,7 +123,8 @@ class ReportScreen extends StatelessWidget {
 
             const SizedBox(height: 6),
 
-            // Giant Glowing Green Print Button
+            // One big green button. With a slip wired it prints; without one it finishes and
+            // says so - the label must never promise a PDF that a tap then does not produce.
             TactileButton(
               onPressed: onPrintSlip ?? onNewPatient,
               height: 56,
@@ -133,10 +134,11 @@ class ReportScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.print_rounded, color: Colors.white, size: 24),
+                  Icon(onPrintSlip != null ? Icons.print_rounded : Icons.person_add_alt_1_rounded,
+                      color: Colors.white, size: 24),
                   const SizedBox(width: 8),
                   Text(
-                    tr('download_slip', language),
+                    tr(onPrintSlip != null ? 'download_slip' : 'next_patient', language),
                     style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w900,
@@ -189,23 +191,8 @@ class ReportScreen extends StatelessWidget {
               // What the camera measured while the patient answered. Shown as "not measured"
               // when it did not get a reading: a plausible number nobody took is the one thing
               // a sheet a doctor reads must never carry.
-              if (_vitals['bpm'] != null && _vitals['confident'] == true) ...[
-                Expanded(child: _buildSummaryTile(
-                  icon: Icons.favorite_rounded,
-                  title: tr('vitals_heart', language),
-                  value: '${(_vitals['bpm'] as num).round()} bpm',
-                  onEdit: null,
-                )),
-                const SizedBox(height: 6),
-              ] else if (_vitals.isNotEmpty) ...[
-                Expanded(child: _buildSummaryTile(
-                  icon: Icons.favorite_border_rounded,
-                  title: tr('vitals_heart', language),
-                  value: tr('vitals_not_taken', language),
-                  onEdit: null,
-                )),
-                const SizedBox(height: 6),
-              ],
+              Expanded(child: _vitalsTile()),
+              const SizedBox(height: 6),
               Expanded(child: prakriti != null
                 ? _buildSummaryTile(
                     icon: Icons.spa_rounded,
@@ -298,6 +285,8 @@ class ReportScreen extends StatelessWidget {
               const SizedBox(height: 6),
               if (useFlex) Expanded(child: tile1) else SizedBox(height: 64, child: tile1),
               const SizedBox(height: 6),
+              if (useFlex) Expanded(child: _vitalsTile()) else SizedBox(height: 64, child: _vitalsTile()),
+              const SizedBox(height: 6),
               if (useFlex) Expanded(child: tile2) else SizedBox(height: 64, child: tile2),
             ],
           );
@@ -356,6 +345,17 @@ class ReportScreen extends StatelessWidget {
 
   Map<String, dynamic> get _vitals =>
       (reportData?['vitals'] as Map?)?.cast<String, dynamic>() ?? const {};
+
+  /// A reading the signal maths vouched for, or "Not measured". Never a number nobody took.
+  Widget _vitalsTile() {
+    final measured = _vitals['bpm'] != null && _vitals['confident'] == true;
+    return _buildSummaryTile(
+      icon: measured ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+      title: tr('vitals_heart', language),
+      value: measured ? '${(_vitals['bpm'] as num).round()} bpm' : tr('vitals_not_taken', language),
+      onEdit: null,
+    );
+  }
 
   Map<String, dynamic> get _clinical =>
       (reportData?['clinical'] as Map?)?.cast<String, dynamic>() ?? const {};

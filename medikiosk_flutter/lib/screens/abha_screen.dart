@@ -8,7 +8,8 @@ import '../widgets/tactile_button.dart';
 class AbhaScreen extends StatefulWidget {
   final String headline;
   final ValueChanged<String> onSubmitAbha;
-  final VoidCallback onSkip;
+  /// Null when the number is required, and then no Skip is drawn at all.
+  final VoidCallback? onSkip;
   final CameraService cameraService;
   final VoidCallback onScanCard;
   final bool isScanning;
@@ -21,7 +22,7 @@ class AbhaScreen extends StatefulWidget {
     super.key,
     required this.headline,
     required this.onSubmitAbha,
-    required this.onSkip,
+    this.onSkip,
     required this.cameraService,
     this.language = 'hi',
     required this.onScanCard,
@@ -36,6 +37,20 @@ class AbhaScreen extends StatefulWidget {
 class _AbhaScreenState extends State<AbhaScreen> {
   String _digits = '';
   bool _showScannerOnMobile = false;
+  // The card prints two identities - a 14-digit number and an address like name@abdm - and
+  // the patient gives whichever they can read out. Either is accepted by the server as is.
+  bool _byAddress = false;
+  final TextEditingController _address = TextEditingController();
+
+  static final RegExp _addressShape = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]{2,62}@[A-Za-z]{2,10}$');
+
+  bool get _addressValid => _addressShape.hasMatch(_address.text.trim());
+
+  @override
+  void dispose() {
+    _address.dispose();
+    super.dispose();
+  }
 
   void _addDigit(String d) {
     if (_digits.length < 14) {
@@ -129,8 +144,71 @@ class _AbhaScreenState extends State<AbhaScreen> {
           ),
         );
 
+        final addressPane = Column(
+          children: [
+            TextField(
+              controller: _address,
+              onChanged: (_) => setState(() {}),
+              onSubmitted: (_) { if (_addressValid) widget.onSubmitAbha(_address.text.trim()); },
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              enableSuggestions: false,
+              textInputAction: TextInputAction.done,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF0D9488)),
+              decoration: InputDecoration(
+                hintText: tr('abha_address_hint', widget.language),
+                prefixIcon: const Icon(Icons.alternate_email_rounded, color: Color(0xFF0D9488)),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TactileButton(
+              onPressed: _addressValid ? () => widget.onSubmitAbha(_address.text.trim()) : null,
+              height: 52,
+              isSuccess: true,
+              borderRadius: BorderRadius.circular(14),
+              child: const Icon(Icons.check_rounded, size: 26, color: Colors.white),
+            ),
+          ],
+        );
+
+        final identityToggle = Row(
+          children: [
+            Expanded(
+              child: TactileButton(
+                onPressed: () => setState(() => _byAddress = false),
+                isSelected: !_byAddress,
+                height: 40,
+                borderRadius: BorderRadius.circular(10),
+                child: Text(tr('abha_14_digits', widget.language),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TactileButton(
+                onPressed: () => setState(() => _byAddress = true),
+                isSelected: _byAddress,
+                height: 40,
+                borderRadius: BorderRadius.circular(10),
+                child: Text(tr('abha_address_tab', widget.language),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+            ),
+          ],
+        );
+
         final keypadPane = Column(
           children: [
+            identityToggle,
+            const SizedBox(height: 4),
+            Text(tr('abha_either', widget.language),
+                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)), textAlign: TextAlign.center),
+            const SizedBox(height: 6),
+            if (_byAddress) addressPane else ...[
             // Display box
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -197,6 +275,7 @@ class _AbhaScreenState extends State<AbhaScreen> {
                 },
               ),
             ),
+            ],
           ],
         );
 
@@ -228,17 +307,20 @@ class _AbhaScreenState extends State<AbhaScreen> {
                     child: Text(
                       widget.headline.isEmpty ? tr('abha_title', widget.language) : widget.headline,
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
-                      maxLines: 1,
+                      // Two lines: the headline now says what the ABHA is for, and a sentence
+                      // cut to "It is used to find y..." tells the patient nothing.
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  TactileButton(
-                    onPressed: widget.onSkip,
-                    height: 34,
-                    backgroundColor: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Text(tr('skip', widget.language), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                  ),
+                  if (widget.onSkip != null)
+                    TactileButton(
+                      onPressed: widget.onSkip,
+                      height: 34,
+                      backgroundColor: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Text(tr('skip', widget.language), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                    ),
                 ],
               ),
             ),
@@ -254,7 +336,7 @@ class _AbhaScreenState extends State<AbhaScreen> {
                       isSelected: !_showScannerOnMobile,
                       height: 38,
                       borderRadius: BorderRadius.circular(10),
-                      child: Text('🔢 ${tr('enter_number', widget.language)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      child: Text(tr('enter_number', widget.language), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -264,7 +346,7 @@ class _AbhaScreenState extends State<AbhaScreen> {
                       isSelected: _showScannerOnMobile,
                       height: 38,
                       borderRadius: BorderRadius.circular(10),
-                      child: Text('📷 ${tr('scan_card_tab', widget.language)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      child: Text(tr('scan_card_tab', widget.language), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                     ),
                   ),
                 ],

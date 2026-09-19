@@ -334,7 +334,7 @@ class KioskFrame extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('🤷', style: TextStyle(fontSize: 16)),
+                      const Icon(Icons.help_outline_rounded, size: 18),
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
