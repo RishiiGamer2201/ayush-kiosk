@@ -1015,24 +1015,14 @@ class _WorkflowBodyState extends State<WorkflowBody> {
         // Previously this sent choose/'walk_in', which the flow read as the patient's *name* and
         // then rejected as their age - so the form's contents were discarded and the button
         // appeared dead. Send what the patient actually typed, in the order the flow asks.
-        onRegister: (profile) {
-          final typed = {
-            'registration.name': profile.name.trim().isEmpty ? 'Patient' : profile.name.trim(),
-            'registration.age': '${profile.age ?? 35}',
-            'registration.gender': profile.gender,
-          };
-          // Coming back from review to correct one field, the flow is asking for that field
-          // alone - it offers "cancel", which plain registration never does. Sending all three
-          // then spilled the other two onto the questions that followed, and the corrected
-          // answer disappeared from the review entirely.
-          final editing = actions.contains('cancel');
-          final asked = '${client.screen['question_id'] ?? ''}';
-          if (editing && typed.containsKey(asked)) {
-            client.answerAll([typed[asked]!]);
-          } else {
-            client.answerAll(typed.values.toList());
-          }
-        },
+        // Only what the patient actually gave, keyed by the field it belongs to. Nothing is
+        // substituted for a blank: an invented name or age is indistinguishable from a real one
+        // on the sheet the doctor reads.
+        onRegister: (profile) => client.answerFields({
+          if (profile.name.trim().isNotEmpty) 'registration.name': profile.name.trim(),
+          if (profile.age != null) 'registration.age': '${profile.age}',
+          if (profile.gender.isNotEmpty) 'registration.gender': profile.gender,
+        }),
         onScanCard: widget.onScanCard ?? () {},
         isScanning: widget.isScanning,
         scanError: widget.scanError,

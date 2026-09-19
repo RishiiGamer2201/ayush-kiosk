@@ -302,14 +302,19 @@ class KioskClient extends ChangeNotifier {
   // the flow asks one at a time and takes one answer per acknowledgment. The queue lives here
   // rather than in a widget because only this object knows when the previous answer landed, and
   // because widget state is rebuilt out from under a queue that outlives a single screen.
-  final List<String> _queued = [];
+  final Map<String, String> _queued = {};
   KioskStage? _queuedStage;
 
-  /// Answer a run of questions in order, one per acknowledgment.
-  void answerAll(List<String> values) {
+  /// Answer several questions, each keyed by the question it belongs to.
+  ///
+  /// A screen that collects more than one thing at once - registration wants a name, an age and
+  /// a gender - hands them all over, and the flow asks for them one at a time. Keying them by
+  /// question id rather than by position means an answer can only ever land on its own field,
+  /// however far through the sequence the flow already is.
+  void answerFields(Map<String, String> byQuestion) {
     _queued
       ..clear()
-      ..addAll(values);
+      ..addAll(byQuestion);
     _queuedStage = currentStage;
     _drainAnswers();
   }
@@ -323,7 +328,15 @@ class KioskClient extends ChangeNotifier {
       return;
     }
     if (_pending != null) return;
-    action('answer', _queued.removeAt(0));
+    final asked = _questionId;
+    if (asked == null || !_queued.containsKey(asked)) {
+      // The flow is asking something this screen did not collect. Answering it with whatever is
+      // next in the queue is how an age ends up in a gender field.
+      _queued.clear();
+      _queuedStage = null;
+      return;
+    }
+    action('answer', _queued.remove(asked));
   }
 
   void action(String action, [dynamic value]) {

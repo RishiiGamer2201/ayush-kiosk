@@ -56,10 +56,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     super.dispose();
   }
 
+  /// True once there is something real to send. Nothing is substituted for a blank: an invented
+  /// age is indistinguishable from a given one on the sheet the doctor reads, and a patient who
+  /// cannot answer has "I do not know" in the footer, which is what it is for.
+  bool get _hasSomethingToSend =>
+      _nameController.text.trim().isNotEmpty ||
+      int.tryParse(_ageController.text.trim()) != null ||
+      _selectedGender.isNotEmpty;
+
   void _submit() {
     final profile = PatientProfile(
-      name: _nameController.text.trim().isEmpty ? 'Patient / मरीज़' : _nameController.text.trim(),
-      age: int.tryParse(_ageController.text.trim()) ?? 35,
+      name: _nameController.text.trim(),
+      age: int.tryParse(_ageController.text.trim()),
       gender: _selectedGender,
       abhaNumber: _abhaController.text.trim().isEmpty ? null : _abhaController.text.trim(),
       isWalkIn: _abhaController.text.trim().isEmpty,
@@ -81,6 +89,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               // Name Input
               TextField(
                 controller: _nameController,
+                onChanged: (_) => setState(() {}),
                 style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 decoration: InputDecoration(
                   labelText: tr('patient_name', widget.language),
@@ -99,6 +108,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   Expanded(
                     child: TextField(
                       controller: _ageController,
+                      onChanged: (_) => setState(() {}),
                       keyboardType: TextInputType.number,
                       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                       decoration: InputDecoration(
@@ -115,7 +125,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   TactileButton(
                     onPressed: () {
                       final curr = int.tryParse(_ageController.text) ?? 30;
-                      if (curr > 1) _ageController.text = (curr - 1).toString();
+                      if (curr > 1) setState(() => _ageController.text = (curr - 1).toString());
                     },
                     width: 44,
                     height: 44,
@@ -125,8 +135,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   const SizedBox(width: 6),
                   TactileButton(
                     onPressed: () {
-                      final curr = int.tryParse(_ageController.text) ?? 30;
-                      if (curr < 120) _ageController.text = (curr + 1).toString();
+                      final curr = int.tryParse(_ageController.text) ?? 29;
+                      if (curr < 120) setState(() => _ageController.text = (curr + 1).toString());
                     },
                     width: 44,
                     height: 44,
@@ -230,7 +240,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         );
 
         final submitButton = TactileButton(
-          onPressed: _submit,
+          onPressed: _hasSomethingToSend ? _submit : null,
           height: 52,
           isSuccess: true,
           borderRadius: BorderRadius.circular(16),
@@ -342,11 +352,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ),
               ),
 
-            if (isWide) ...[
-              const SizedBox(height: 8),
-              // Bottom Submit Button for Wide displays
-              submitButton,
-            ],
+            // The wide layout drew this button twice - once under the fields and again at the
+            // bottom of the screen. Two identical green buttons is one question too many for
+            // someone already unsure whether they have filled the form in correctly.
+
           ],
         );
 

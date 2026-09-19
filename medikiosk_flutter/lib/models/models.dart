@@ -137,10 +137,12 @@ class PatientProfile {
   bool isWalkIn;
 
   PatientProfile({
-    // Empty, not a placeholder: a pre-filled name is submitted as the patient's own.
+    // Nothing is pre-filled. A patient who touches none of these had a name, an age of 35 and a
+    // gender of Male recorded as fact; 35 is plausible enough that nobody reading the sheet
+    // would think to question it.
     this.name = '',
-    this.age = 35,
-    this.gender = 'Male',
+    this.age,
+    this.gender = '',
     this.abhaNumber,
     this.mobileNumber,
     this.isWalkIn = true,
