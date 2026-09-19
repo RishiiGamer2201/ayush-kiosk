@@ -94,6 +94,9 @@ class GeminiClinicalExtractor:
             response_schema=ClinicalUpdate,
             temperature=0.0,
             max_output_tokens=1200,
+            # No thinking: this is a fill-in-the-schema task, and on the Jetson the model spent
+            # 1149 thinking tokens of a 1200 budget and returned JSON cut off mid-field.
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
             # No tools are offered, and the SDK warns on every async call unless told so.
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         )
